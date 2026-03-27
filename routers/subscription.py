@@ -47,7 +47,7 @@ def _() -> Response:
     conf = ConfigParser()
     conf.read('config.ini')
 
-    raw_jwt = request.args.get('token').strip()
+    raw_jwt = request.args.get('jwt').strip()
 
     with SecurityRepository() as security_rep:
         payload = jwt.decode(
