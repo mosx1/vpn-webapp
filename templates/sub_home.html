@@ -55,7 +55,7 @@
 </head>
 <body>
     <div class="container">
-        {% if user.action == false %}
+        {% if user.action %}
         <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo" style="max-width: 480px; margin-bottom: 18px; border-radius: 7px;">
         <div class="section">
             <h2>1. Скачайте приложение VPN</h2>
