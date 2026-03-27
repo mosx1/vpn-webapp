@@ -107,7 +107,7 @@ def linkIphone() -> Response:
             algorithms=config['JWT'].get('algoritm')
         )
     
-    link: str = get_link_subscription(data_from_jwt.telegram_id)
+    link: str = get_link_subscription(data_from_jwt['telegram_id'])
 
     return redirect(deeplink_start + link)
 
@@ -148,7 +148,7 @@ def payment() -> Response:
 
     config = ConfigParser()
     config.read('config.ini')
-    
+
     label = str(uuid.uuid4())
     raw_jwt = request.args.get('token').strip()
 
