@@ -1,4 +1,4 @@
-from sqlalchemy import Column,Numeric, BIGINT, TEXT, TIMESTAMP, BOOLEAN, CHAR, ForeignKeyConstraint, INTEGER, TIME
+from sqlalchemy import Column,Numeric, SMALLINT, BIGINT, TEXT, TIMESTAMP, BOOLEAN, CHAR, ForeignKeyConstraint, INTEGER, func, text
 from sqlalchemy.ext.declarative import declarative_base
 
 from connect import engine
@@ -37,6 +37,8 @@ class ServersTable(Base):
     links: Column = Column(TEXT, nullable=False)
     country: Column = Column(INTEGER, nullable=False)
     name: Column = Column(TEXT, nullable=False)
+    speed: Column = Column(INTEGER)
+    answers: Column = Column(BOOLEAN, nullable=False, server_default=text("true"))
 
 
 class CountryTable(Base):
@@ -53,6 +55,25 @@ class SecurityHashs(Base):
 
     hash = Column(TEXT, primary_key=True)
     data = Column(TIMESTAMP(timezone=True), nullable=False)
+
+
+class SaleInvoicesInProgress(Base):
+    
+    __tablename__: str = 'sale_invoices_in_progress'
+
+    id: Column = Column(BIGINT, primary_key=True)
+    telegram_id: Column = Column(BIGINT, nullable=False)
+    label: Column = Column(TEXT, nullable=False)
+    server_id: Column = Column(BIGINT, nullable=False)
+    month_count: Column = Column(SMALLINT, nullable=False)
+    message_id: Column = Column(BIGINT, nullable=False)
+    chat_id: Column = Column(BIGINT, nullable=False)
+    create_date: Column = Column(TIMESTAMP, nullable=False, server_default=func.now())
+
+    __table_agrs___ = (
+        ForeignKeyConstraint(['telegram_id'], ['users_subscription.telegram_id']),
+        ForeignKeyConstraint(['server_id'], ['servers.id'])
+    )
     
     
 Base.metadata.create_all(engine)

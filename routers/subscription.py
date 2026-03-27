@@ -1,30 +1,23 @@
-import base64, jwt
+import base64, jwt, uuid
 
 from typing import Any
-
-from urllib.parse import parse_qs, urlparse
 
 from flask import Blueprint, Response, render_template, request, redirect
 
 from db.models import User
 from db.repository.users import UsersRepository
+from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
+from db.repository.servers import ServersRepository
 
 from db.repository.security import SecurityRepository
 from db.repository.devices import Devices
 
 from configparser import ConfigParser
 
+from methods.payment.yoomoneyMethods import get_link_payment
+
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
-
-
-def _extract_jwt_from_request() -> str | None:
-    """
-        Возвращает JWT из параметров запроса или из URL в token.
-    """
-    raw_jwt = request.args.get('token')
-    if raw_jwt:
-        return raw_jwt.strip()
 
 
 def get_link_subscription(telegram_id: str | int) -> str:
@@ -54,9 +47,7 @@ def _() -> Response:
     conf = ConfigParser()
     conf.read('config.ini')
 
-    raw_jwt = _extract_jwt_from_request()
-    if not raw_jwt:
-        return Response('JWT token is required', status=400)
+    raw_jwt = request.args.get('token').strip()
 
     with SecurityRepository() as security_rep:
         payload = jwt.decode(
@@ -107,15 +98,13 @@ def linkIphone() -> Response:
         case _:
             return Response('Воспользуйтесь ручной наастройкой')
     
-    raw_jwt = _extract_jwt_from_request()
-    if not raw_jwt:
-        return Response('JWT token is required', status=400)
+    raw_jwt = request.args.get('token').strip()
 
     with SecurityRepository() as security_rep:
         data_from_jwt: dict[str, Any] = jwt.decode(
             raw_jwt,
             security_rep.get(), 
-            algorithm=config['JWT'].get('algoritm')
+            algorithms=config['JWT'].get('algoritm')
         )
     
     link: str = get_link_subscription(data_from_jwt.telegram_id)
@@ -129,17 +118,63 @@ def home_page() -> str | Response:
     config = ConfigParser()
     config.read('config.ini')
 
-    raw_jwt = _extract_jwt_from_request()
-    if not raw_jwt:
-        return Response('JWT token is required', status=400)
-    
-    sub = f"happ://add/https://kuzmos.ru/sub?jwt={raw_jwt}"
-    link = f"https://{config['BaseSettings'].get('host')}/download_app"
+    raw_jwt = request.args.get('token').strip()
+
+    with SecurityRepository() as security_rep:
+        data_from_jwt: dict[str, Any] = jwt.decode(
+            raw_jwt,
+            security_rep.get(), 
+            algorithms=config['JWT'].get('algoritm')
+        )
+    with UsersRepository() as user_rep:
+        user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
+
+    sub = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
+    app_link = f"https://{config['BaseConfig'].get('host')}/download_app"
+    pay_link = f"https://{config['BaseConfig'].get('host')}/sub/pay?token={raw_jwt}&month=1"
 
     return Response(
         render_template(
             'sub_home.html',
             sub_link=sub,
-            app_link=link
+            app_link=app_link,
+            pay_link=pay_link,
+            user=user
         )
+    )
+
+@sub.route('/pay')
+def payment() -> Response:
+
+    config = ConfigParser()
+    config.read('config.ini')
+    
+    label = str(uuid.uuid4())
+    raw_jwt = request.args.get('token').strip()
+
+    count_month = int(request.args.get('month'))
+    with SecurityRepository() as security_rep:
+        data_from_jwt: dict[str, Any] = jwt.decode(
+            raw_jwt,
+            security_rep.get(), 
+            algorithms=config['JWT'].get('algoritm')
+        )
+    with ServersRepository() as servers_repo:
+        very_free_server_id = servers_repo.get_very_free_server()
+
+    with SaleInvoicesInProgressRepository() as siip_repo:
+        siip_repo.add_sale_invoice(
+            label,
+            data_from_jwt['telegram_id'],
+            very_free_server_id,
+            count_month
+        )
+
+    link = get_link_payment(
+        label, 
+        count_month
+    )
+
+    return redirect(
+        link
     )
