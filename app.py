@@ -1,4 +1,4 @@
-import http
+import http, methods.common
 
 from routers.vpn_app import vpn_app_bp
 from routers.subscription import sub
@@ -64,6 +64,7 @@ def linkIphone():
 
 @app.route('/download_app')
 def _():
+    return methods.common.auto_select_platform_by_download_app()
     request.headers.get('User-Agent')
     device_client: str = (request.headers.get('User-Agent').split("(")[1]).split(";")[0]
 

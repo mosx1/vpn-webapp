@@ -22,20 +22,9 @@ def _extract_jwt_from_request() -> str | None:
     """
         Возвращает JWT из параметров запроса или из URL в token.
     """
-    raw_jwt = request.args.get('jwt')
+    raw_jwt = request.args.get('token')
     if raw_jwt:
         return raw_jwt.strip()
-
-    raw_token = request.args.get('token')
-    if not raw_token:
-        return None
-
-    if raw_token.startswith('http://') or raw_token.startswith('https://'):
-        query = parse_qs(urlparse(raw_token).query)
-        jwt_from_url = query.get('jwt', [None])[0]
-        return jwt_from_url
-
-    return raw_token.strip()
 
 
 def get_link_subscription(telegram_id: str | int) -> str:
@@ -145,10 +134,12 @@ def home_page() -> str | Response:
         return Response('JWT token is required', status=400)
     
     sub = f"happ://add/https://kuzmos.ru/sub?jwt={raw_jwt}"
+    link = f"https://{config['BaseSettings'].get('host')}/download_app"
 
     return Response(
         render_template(
             'sub_home.html',
-            sub_link=sub
+            sub_link=sub,
+            app_link=link
         )
     )
