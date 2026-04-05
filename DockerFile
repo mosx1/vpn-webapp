@@ -1,0 +1,10 @@
+FROM python:3.12
+ 
+WORKDIR /vpn-webapp
+
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
+COPY . /vpn-webapp
+
+CMD ["python3.12", "app.py"]

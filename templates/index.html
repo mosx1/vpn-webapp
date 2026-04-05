@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кузнецов Максим</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        header {
+            background-image: url("{{ url_for('static', filename='ava.jpg') }}");
+            background-size: no-repeat;
+            background-position: center;
+            background-size: cover;
+            padding: 10px 150px;
+            height: 500px;
+            text-align: left;
+        }
+        header div {
+            position: sticky;
+            top: 0;
+        }
+        section {
+            margin: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        img {
+            vertical-align: top;
+            width: 32%;
+        }
+        h2 {
+            display: inline-block;
+            vertical-align: top;
+            width: 60%;
+            padding: 3%;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Кузнецов Максим</h1>
+        <p>Backend разработчик</p>
+    </div>
+</header>
+
+<section>
+    <h2>Обо мне<p>Backend разработчик с опытом работы с различными технологиями и языками программирования, такими как Python, JS и SQL.</p></h2>
+    
+</section>
+<div>
+    <img src="{{ url_for('static', filename='telega.png') }}" />
+    <h2>Разработка телеграмм ботов напрямую с API или через библиотеки: telebot, aiogram, pyrogram</h2>
+</div>
+<div>
+    <h2>Создание REST API и полноценных WEB приложений для различных задач</h2>
+    <img src="{{ url_for('static', filename='flask.png') }}" />
+</div>
+<div>
+    <img src="{{ url_for('static', filename='db.png') }}" />
+    <h2>Оптимизация и составление высокоэффективных запросов к БД, а также интеграция БД с приложением</h2>
+</div>
+
+<section>
+    <h3>Контакты</h2>
+    <p><a href="mailto:597730754a@gmail.com">597730754a@gmail.com</a></p>
+    <p><a href="https://t.me/kuz_mos">Telegram</a></p>
+</section>
+
+<footer>
+    <p style="text-align:center; margin-top:20px;">© Кузнецов Максим</p>
+</footer>
+
+</body>
+</html>

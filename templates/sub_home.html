@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Скачать VPN и получить подписку</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fa;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+        .container {
+            max-width: 480px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            padding: 32px 28px;
+            text-align: center;
+        }
+        h1 {
+            color: #222;
+            font-size: 2em;
+            margin-bottom: 18px;
+        }
+        .section {
+            margin: 25px 0;
+        }
+        a.button {
+            display: inline-block;
+            padding: 12px 30px;
+            margin: 8px 0;
+            background: #ac0000;
+            color: #fff;
+            border-radius: 5px;
+            font-weight: 500;
+            text-decoration: none;
+            font-size: 1.05em;
+            transition: background 0.9s;
+        }
+        a.button:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+            transition: box-shadow 0.4s cubic-bezier(0.4,0,0.2,1);
+        }
+        .note {
+            color: #757575;
+            font-size: 0.96em;
+            margin-top: 30px;
+        }
+        img {
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if user.action %}
+        <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo" style="max-width: 480px; margin-bottom: 18px; border-radius: 7px;">
+        <div class="section">
+            <h2>1. Скачайте приложение VPN</h2>
+            <a href="{{ app_link }}" class="button">Скачать приложение</a><br>
+            <p>Обращаем ваще внимание, что сервер сам определит с какого вы устройства и скачает нужное приложение.</p>
+        </div>
+        
+        <div class="section">
+            <h2>2. Получите VPN подписку</h2>
+            <a href="{{ sub_link }}" class="button">Настроить приложение</a>
+        </div>
+        <div>
+            <h2>Ручная настройка</h2>
+            <p>Если вам не удалось настроить приложение автоматически в первых 2х пунктах, вы можете воспользоваться ручной настройкой.</p>
+            <p>Для этого нажмите на одну из кнопок ниже, в буфер обмена скопируется ссылка на подписку(рекомендуется) или ключ (для приложений не поддерживающих ссылку на подписку).</p>
+            <p>После вставьте данную ссылку в приложение</p>
+            <a class="button" id="copy_sub_url">Скопировать подписку</a>
+            <a class="button" id="copy_vless">Скопировать ключ</a>
+        </div>
+        {% else %}
+        <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo" style="max-width: 480px; margin-bottom: 18px; border-radius: 7px;">
+        <div class="section">
+            <h2>Ваша подписка окончена</h2>
+            <a href="{{ pay_link }}" class="button">Оплатить подписку на месяц.</a><br>
+            <p>После оплаты самостоятельно обновляйте страницу, пока в место кнопки оплаты не появятся кнопки с настройкой.</p>
+            <p>Если у вас работае телеграмм, вы также получите уведомление и туда.</p>
+        </div>
+        {% endif %}
+        <p class="note">
+            Если возникнут вопросы — свяжитесь с поддержкой 
+            <a href="https://t.me/open_vpn_sale_bot" target="_blank">через ТГ-бот</a>  
+            или через почту <a href="mailto:597730754a@gmail.com">597730754a@gmail.com</a>.
+        </p>
+    </div>
+</body>
+    <script>
+        document.getElementById("copy_sub_url").addEventListener("click", () => {
+            navigator.clipboard.writeText("{{ sub_url_manual }}");
+            alert("Скопировано!");
+        });
+        document.getElementById("copy_vless").addEventListener("click", () => {
+            navigator.clipboard.writeText("{{ user.server_link }}");
+            alert("Скопировано!");
+        });
+    </script>
+</html>
