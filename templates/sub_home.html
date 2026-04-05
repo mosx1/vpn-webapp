@@ -9,7 +9,8 @@
             background-color: #f7f9fa;
             margin: 0;
             padding: 0;
-            width: 100%;
+            width: 360px;
+            margin: auto;
         }
         .container {
             max-width: 480px;
@@ -51,13 +52,16 @@
         }
         img {
             border: 0;
+            max-width: 300px;
+            margin-bottom: 18px;
+            border-radius: 7px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         {% if user.action %}
-        <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo" style="max-width: 480px; margin-bottom: 18px; border-radius: 7px;">
+        <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo">
         <div class="section">
             <h2>1. Скачайте приложение VPN</h2>
             <a href="{{ app_link }}" class="button">Скачать приложение</a><br>
