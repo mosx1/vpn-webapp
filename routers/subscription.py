@@ -133,13 +133,16 @@ def home_page() -> str | Response:
     app_link = f"https://{config['BaseConfig'].get('host')}/download_app"
     pay_link = f"https://{config['BaseConfig'].get('host')}/sub/pay?token={raw_jwt}&month=1"
 
+    link: str = get_link_subscription(data_from_jwt['telegram_id'])
+
     return Response(
         render_template(
             'sub_home.html',
             sub_link=sub,
             app_link=app_link,
             pay_link=pay_link,
-            user=user
+            user=user,
+            sub_url_manual=link
         )
     )
 

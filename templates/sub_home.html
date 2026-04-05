@@ -9,6 +9,7 @@
             background-color: #f7f9fa;
             margin: 0;
             padding: 0;
+            width: 100%;
         }
         .container {
             max-width: 480px;
@@ -67,12 +68,14 @@
             <h2>2. Получите VPN подписку</h2>
             <a href="{{ sub_link }}" class="button">Настроить приложение</a>
         </div>
-
-        <p class="note">
-            Если возникнут вопросы — свяжитесь с поддержкой 
-            <a href="https://t.me/open_vpn_sale_bot" target="_blank">через ТГ-бот</a>  
-            или через почту 597730754a@gmail.com.
-        </p>
+        <div>
+            <h2>Ручная настройка</h2>
+            <p>Если вам не удалось настроить приложение автоматически в первых 2х пунктах, вы можете воспользоваться ручной настройкой.</p>
+            <p>Для этого нажмите на одну из кнопок ниже, в буфер обмена скопируется ссылка на подписку(рекомендуется) или ключ (для приложений не поддерживающих ссылку на подписку).</p>
+            <p>После вставьте данную ссылку в приложение</p>
+            <a class="button" id="copy_sub_url">Скопировать подписку</a>
+            <a class="button" id="copy_vless">Скопировать ключ</a>
+        </div>
         {% else %}
         <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo" style="max-width: 480px; margin-bottom: 18px; border-radius: 7px;">
         <div class="section">
@@ -81,13 +84,22 @@
             <p>После оплаты самостоятельно обновляйте страницу, пока в место кнопки оплаты не появятся кнопки с настройкой.</p>
             <p>Если у вас работае телеграмм, вы также получите уведомление и туда.</p>
         </div>
-
+        {% endif %}
         <p class="note">
             Если возникнут вопросы — свяжитесь с поддержкой 
             <a href="https://t.me/open_vpn_sale_bot" target="_blank">через ТГ-бот</a>  
             или через почту <a href="mailto:597730754a@gmail.com">597730754a@gmail.com</a>.
         </p>
-        {% endif %}
     </div>
 </body>
+    <script>
+        document.getElementById("copy_sub_url").addEventListener("click", () => {
+            navigator.clipboard.writeText("{{ sub_url_manual }}");
+            alert("Скопировано!");
+        });
+        document.getElementById("copy_vless").addEventListener("click", () => {
+            navigator.clipboard.writeText("{{ user.server_link }}");
+            alert("Скопировано!");
+        });
+    </script>
 </html>
