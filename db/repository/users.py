@@ -2,9 +2,10 @@ from ..common import BaseRepository
 
 from db.models import User, ServersTable
 
-from typing import Iterable
+from typing import Iterable, Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+
 
 
 class UsersRepository(BaseRepository[User]):
@@ -44,3 +45,14 @@ class UsersRepository(BaseRepository[User]):
         result = self.session.execute(query)
         return result.scalar_one_or_none()
         
+    
+    def update(self, id: Any, update_data: dict) -> User | None:
+        """Обновление записи"""
+        stmt = (
+            update(User)
+            .where(User.telegram_id == id)
+            .values(**update_data)
+            .returning(User)
+        )
+        result = self.session.execute(stmt)  # noqa: F811
+        return result.scalar_one_or_none()

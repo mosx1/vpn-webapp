@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, Optional, List, Any
+from unittest import result
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update, delete
 
@@ -58,8 +59,19 @@ class AbstractRepository(ABC, Generic[T]):
             .values(**update_data)
             .returning(self.model)
         )
-        result = self.session.execute(stmt)
+        result = self.session.execute(stmt)  # noqa: F811
         return result.scalar_one_or_none()
+    
+    def update_by_filter(self, filters: list, update_data: dict) -> None:
+        """
+            Обновление записей по фильтру
+        """
+        stmt = (
+            update(self.model)
+            .where(*filters)
+            .values(**update_data)
+        )
+        self.session.execute(stmt)
     
     def delete(self, id: Any) -> bool:
         """Удаление записи"""
