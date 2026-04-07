@@ -16,6 +16,8 @@ from configparser import ConfigParser
 
 from methods.payment.yoomoneyMethods import get_link_payment
 
+from methods.manager_users import UserControl
+
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
 
@@ -142,9 +144,37 @@ def home_page() -> str | Response:
             app_link=app_link,
             pay_link=pay_link,
             user=user,
-            sub_url_manual=link
+            sub_url_manual=link,
+            token=raw_jwt
         )
     )
+
+
+@sub.route('/transfer_other_server')
+def transfer_other_server() -> Response:
+
+    config = ConfigParser()
+    config.read('config.ini')
+
+    raw_jwt = request.args.get('token').strip()
+
+    with SecurityRepository() as security_rep:
+        data_from_jwt: dict[str, Any] = jwt.decode(
+            raw_jwt,
+            security_rep.get(), 
+            algorithms=config['JWT'].get('algoritm')
+        )
+    with UsersRepository() as user_rep:
+        user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
+    
+        with ServersRepository() as server_rep:
+            server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
+        
+        user_control = UserControl(user.telegram_id)
+        user_control.delete()
+        user_control.add(server_id)
+    return redirect(f"/sub/home?token={raw_jwt}")
+
 
 @sub.route('/pay')
 def payment() -> Response:

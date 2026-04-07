@@ -1,8 +1,15 @@
+import logging
+
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
 from configparser import ConfigParser
 
+logging.basicConfig(
+    level=logging.INFO,
+    filename = "logs.txt",
+    format="%(asctime)s %(levelname)s %(message)s"
+)
 
 
 config = ConfigParser()

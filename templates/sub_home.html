@@ -9,7 +9,7 @@
             background-color: #f7f9fa;
             margin: 0;
             padding: 0;
-            width: 360px;
+            width: 390px;
             margin: auto;
         }
         .container {
@@ -52,16 +52,43 @@
         }
         img {
             border: 0;
-            max-width: 300px;
+            max-width: 330px;
             margin-bottom: 18px;
             border-radius: 7px;
         }
+        /* Полноэкранный лоадер */
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+        #loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid #fff;
+            border-top: 5px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div style="color: white; margin-left: 20px;">Пожалуйста подождите, идет смена сервера...</div>
+    </div>
     <div class="container">
-        {% if user.action %}
         <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo">
+        {% if user.action %}
         <div class="section">
             <h2>1. Скачайте приложение VPN</h2>
             <a href="{{ app_link }}" class="button">Скачать приложение</a><br>
@@ -73,6 +100,9 @@
             <a href="{{ sub_link }}" class="button">Настроить приложение</a>
         </div>
         <div>
+            <a href="/sub/transfer_other_server?token={{ token }}" class="button" id="reloadBtn">Сменить сервер</a>
+        </div>
+        <div>
             <h2>Ручная настройка</h2>
             <p>Если вам не удалось настроить приложение автоматически в первых 2х пунктах, вы можете воспользоваться ручной настройкой.</p>
             <p>Для этого нажмите на одну из кнопок ниже, в буфер обмена скопируется ссылка на подписку(рекомендуется) или ключ (для приложений не поддерживающих ссылку на подписку).</p>
@@ -81,7 +111,6 @@
             <a class="button" id="copy_vless">Скопировать ключ</a>
         </div>
         {% else %}
-        <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo" style="max-width: 480px; margin-bottom: 18px; border-radius: 7px;">
         <div class="section">
             <h2>Ваша подписка окончена</h2>
             <a href="{{ pay_link }}" class="button">Оплатить подписку на месяц.</a><br>
@@ -97,6 +126,7 @@
     </div>
 </body>
     <script>
+        // Копирование подписок (без изменений)
         document.getElementById("copy_sub_url").addEventListener("click", () => {
             navigator.clipboard.writeText("{{ sub_url_manual }}");
             alert("Скопировано!");
@@ -104,6 +134,29 @@
         document.getElementById("copy_vless").addEventListener("click", () => {
             navigator.clipboard.writeText("{{ user.server_link }}");
             alert("Скопировано!");
+        });
+
+        // ЛОАДЕР для кнопки "Сменить сервер"
+        document.getElementById('reloadBtn').addEventListener('click', function(e) {
+            e.preventDefault();  // Предотвращаем немедленный переход
+            
+            // 1. Блокируем кнопку
+            this.disabled = true;
+            this.textContent = 'Загрузка сервера...';
+            
+            // 2. Показываем полноэкранный лоадер
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';  // Показать лоадер
+            
+            // 3. Переходим на URL через 800мс (чтобы лоадер был виден)
+            setTimeout(() => {
+                window.location.href = this.href;  // Переход по ссылке кнопки
+            }, 800);
+        });
+
+        // Скрыть лоадер при загрузке страницы (если нужно)
+        window.addEventListener('load', () => {
+            document.getElementById('loader').style.display = 'none';
         });
     </script>
 </html>
