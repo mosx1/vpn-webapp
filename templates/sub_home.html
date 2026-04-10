@@ -195,6 +195,15 @@
             border-radius: var(--radius);
             box-shadow: 0 8px 30px rgb(15 23 42 / 0.1);
         }
+        .protocol-current {
+            margin: -8px 0 1rem;
+            font-size: clamp(0.88rem, 2.2vw, 0.95rem);
+            color: var(--text-muted);
+        }
+        .protocol-current strong {
+            color: var(--text);
+            font-weight: 600;
+        }
         /* Полноэкранный лоадер */
         #loader {
             position: fixed;
@@ -352,6 +361,7 @@
     </div>
     <div class="container">
         <img class="hero-img" src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN" loading="eager" decoding="async">
+        <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p>
         {% if user.action %}
         <div class="section step-panel">
             <h2>1. Скачайте приложение VPN</h2>

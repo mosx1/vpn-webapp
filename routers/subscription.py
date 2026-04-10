@@ -21,6 +21,11 @@ from methods.manager_users import UserControl, get_current_user
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
 
+_PROTOCOL_DISPLAY: dict[int, str] = {
+    Protocols.xray.value: "Xray",
+    Protocols.amneziawg.value: "AmneziaWG",
+}
+
 
 def get_link_subscription(telegram_id: str | int) -> str:
     """
@@ -132,6 +137,7 @@ def home_page() -> str | Response:
     pay_link = f"https://{config['BaseConfig'].get('host')}/sub/pay?token={raw_jwt}&month=1"
 
     link: str = get_link_subscription(data_from_jwt['telegram_id'])
+    protocol_name = _PROTOCOL_DISPLAY.get(user.protocol, str(user.protocol))
 
     return Response(
         render_template(
@@ -141,7 +147,8 @@ def home_page() -> str | Response:
             pay_link=pay_link,
             user=user,
             sub_url_manual=link,
-            token=raw_jwt
+            token=raw_jwt,
+            protocol_name=protocol_name,
         )
     )
 
