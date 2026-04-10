@@ -7,4 +7,7 @@ RUN pip install -r requirements.txt
 
 COPY . /vpn-webapp
 
+RUN chmod +x /vpn-webapp/docker-entrypoint.sh
+
+ENTRYPOINT ["/vpn-webapp/docker-entrypoint.sh"]
 CMD ["python3.12", "app.py"]
