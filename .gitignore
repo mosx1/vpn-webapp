@@ -1,5 +1,6 @@
 *.ini
 .DS_store
+log.txt
 4D002912B4993245196BCCD3E033B394.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/

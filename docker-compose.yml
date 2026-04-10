@@ -1,0 +1,9 @@
+# Образ задаётся при деплое: DEPLOY_IMAGE=ghcr.io/owner/repo:<sha>
+# Локально: export DEPLOY_IMAGE=ghcr.io/owner/repo:latest && docker compose up
+
+services:
+  web:
+    image: ${DEPLOY_IMAGE:?set DEPLOY_IMAGE to ghcr.io/owner/repo:tag}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    restart: unless-stopped

@@ -1,0 +1,96 @@
+# Деплой: сборка Docker-образа → push в GHCR → на сервере docker compose pull && up.
+# Запуск: Actions → Deploy to server → Run workflow.
+#
+# Секреты (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY — SSH на сервер (как раньше).
+#   GHCR_PULL_USERNAME, GHCR_PULL_TOKEN — опционально, если образ приватный:
+#     на сервере перед pull выполнится docker login ghcr.io.
+#     Token: GitHub → Settings → Developer settings → PAT с read:packages,
+#     или Fine-grained: доступ к репозиторию пакетов.
+#
+# Переменные (Variables), по желанию:
+#   DEPLOY_PATH — каталог на сервере с docker-compose.yml (по умолчанию /opt/vpn-webapp).
+
+name: Deploy to server
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Ветка для сборки и деплоя
+        required: false
+        default: main
+      ssh_port:
+        description: SSH-порт сервера
+        required: false
+        default: "22"
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Имя образа (GHCR в нижнем регистре)
+        id: image
+        run: |
+          R=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "repo_lc=${R}" >> "$GITHUB_OUTPUT"
+          echo "image_sha=ghcr.io/${R}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: DockerFile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image_sha }}
+            ghcr.io/${{ steps.image.outputs.repo_lc }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: SSH — docker compose pull && up
+        uses: appleboy/ssh-action@v1.2.1
+        env:
+          DEPLOY_IMAGE: ${{ steps.image.outputs.image_sha }}
+          GHCR_USER: ${{ secrets.GHCR_PULL_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ github.event.inputs.ssh_port }}
+          envs: DEPLOY_IMAGE,GHCR_USER,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            DEPLOY_PATH='${{ vars.DEPLOY_PATH }}'
+            if [ -z "$DEPLOY_PATH" ]; then DEPLOY_PATH='/root/vpn-webapp'; fi
+            if [ -n "${GHCR_TOKEN:-}" ] && [ -n "${GHCR_USER:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            fi
+            cd "$DEPLOY_PATH"
+            export DEPLOY_IMAGE
+            docker compose pull
+            docker compose up -d --remove-orphans

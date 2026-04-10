@@ -1,6 +1,6 @@
 import base64, jwt, uuid
 
-from typing import Any
+from typing import Any, Protocol
 
 from flask import Blueprint, Response, render_template, request, redirect
 
@@ -8,7 +8,7 @@ from db.models import User
 from db.repository.users import UsersRepository
 from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
 from db.repository.servers import ServersRepository
-
+from db.enums import Protocols
 from db.repository.security import SecurityRepository
 from db.repository.devices import Devices
 
@@ -16,7 +16,7 @@ from configparser import ConfigParser
 
 from methods.payment.yoomoneyMethods import get_link_payment
 
-from methods.manager_users import UserControl
+from methods.manager_users import UserControl, get_current_user
 
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
@@ -116,7 +116,7 @@ def linkIphone() -> Response:
 
 @sub.route('/home')
 def home_page() -> str | Response:
-
+    
     config = ConfigParser()
     config.read('config.ini')
 
@@ -130,9 +130,9 @@ def home_page() -> str | Response:
         )
     with UsersRepository() as user_rep:
         user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
-
+    aw = user.protocol == Protocols.amneziawg.value
     sub = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
-    app_link = f"https://{config['BaseConfig'].get('host')}/download_app"
+    app_link = f"https://{config['BaseConfig'].get('host')}/download_app?aw={aw}"
     pay_link = f"https://{config['BaseConfig'].get('host')}/sub/pay?token={raw_jwt}&month=1"
 
     link: str = get_link_subscription(data_from_jwt['telegram_id'])
@@ -153,26 +153,15 @@ def home_page() -> str | Response:
 @sub.route('/transfer_other_server')
 def transfer_other_server() -> Response:
 
-    config = ConfigParser()
-    config.read('config.ini')
-
     raw_jwt = request.args.get('token').strip()
-
-    with SecurityRepository() as security_rep:
-        data_from_jwt: dict[str, Any] = jwt.decode(
-            raw_jwt,
-            security_rep.get(), 
-            algorithms=config['JWT'].get('algoritm')
-        )
-    with UsersRepository() as user_rep:
-        user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
+    user: User = get_current_user()
     
-        with ServersRepository() as server_rep:
-            server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
-        
-        user_control = UserControl(user.telegram_id)
-        user_control.delete()
-        user_control.add(server_id)
+    with ServersRepository() as server_rep:
+        server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
+    
+    user_control = UserControl(user.telegram_id)
+    user_control.delete()
+    user_control.add(server_id)
     return redirect(f"/sub/home?token={raw_jwt}")
 
 
@@ -211,3 +200,20 @@ def payment() -> Response:
     return redirect(
         link
     )
+
+
+@sub.route("/transfer_protocol")
+def transfer_protocol() -> Response:
+
+    raw_jwt = request.args.get('token').strip()
+    user: User = get_current_user()
+
+    if user.protocol == Protocols.xray.value:
+        new_protocol = Protocols.amneziawg
+    else:
+        new_protocol = Protocols.xray
+
+    user_control = UserControl(user.telegram_id)
+    user_control.update_protocol(new_protocol)
+    
+    return redirect(f'/sub/home?token={raw_jwt}')
