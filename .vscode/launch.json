@@ -1,0 +1,12 @@
+{
+    "version": "1.0.0",
+    "configurations": [
+        {
+            "name": "vpn-webapp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "justMyCode": false
+        }
+    ]
+}

@@ -2,116 +2,402 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <title>Скачать VPN и получить подписку</title>
     <style>
+        :root {
+            --font: "DM Sans", system-ui, -apple-system, sans-serif;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --border: rgb(148 163 184 / 0.22);
+            --primary: #dc2626;
+            --primary-dark: #b91c1c;
+            --primary-glow: rgb(220 38 38 / 0.35);
+            --link: #2563eb;
+            --radius: 16px;
+            --radius-sm: 12px;
+            --shadow-lg: 0 4px 6px -1px rgb(15 23 42 / 0.06),
+                0 16px 32px -8px rgb(15 23 42 / 0.12);
+            --shadow-inner: inset 0 1px 0 rgb(255 255 255 / 0.6);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html {
+            -webkit-text-size-adjust: 100%;
+        }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f7f9fa;
+            font-family: var(--font);
+            background: fixed radial-gradient(1200px 800px at 80% -10%, rgb(239 246 255 / 0.9), transparent),
+                radial-gradient(900px 600px at -10% 40%, rgb(254 226 226 / 0.45), transparent),
+                linear-gradient(180deg, #f1f5f9 0%, #e8eef5 100%);
             margin: 0;
-            padding: 0;
-            width: 390px;
-            margin: auto;
+            min-height: 100dvh;
+            padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+            color: var(--text);
+            line-height: 1.6;
+            letter-spacing: -0.01em;
         }
         .container {
-            max-width: 480px;
-            margin: 40px auto;
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-            padding: 32px 28px;
+            width: 100%;
+            max-width: min(100%, 520px);
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: clamp(12px, 3vw, 32px);
+            margin-bottom: clamp(12px, 3vw, 32px);
+            background: var(--surface);
+            border-radius: clamp(14px, 3vw, 22px);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgb(255 255 255 / 0.8);
+            padding: clamp(20px, 5vw, 40px) clamp(16px, 4vw, 32px);
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
-        h1 {
-            color: #222;
-            font-size: 2em;
-            margin-bottom: 18px;
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), #f97316, var(--primary-dark));
+            opacity: 0.95;
+        }
+        .container h1 {
+            color: var(--text);
+            font-size: clamp(1.35rem, 4vw, 1.85rem);
+            font-weight: 700;
+            margin: 0 0 1rem;
+            letter-spacing: -0.03em;
+        }
+        .container h2 {
+            font-size: clamp(1.1rem, 3vw, 1.35rem);
+            font-weight: 600;
+            margin: 0 0 0.85rem;
+            line-height: 1.35;
+            color: var(--text);
+            letter-spacing: -0.02em;
+        }
+        .container h3 {
+            font-size: clamp(1rem, 2.6vw, 1.15rem);
+            font-weight: 600;
+            margin: 0 0 0.75rem;
+            color: var(--text);
+        }
+        .container p {
+            margin: 0.8rem 0;
+            max-width: 48ch;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+            font-size: clamp(0.9rem, 2.3vw, 0.98rem);
+            color: var(--text-muted);
         }
         .section {
-            margin: 25px 0;
+            margin: clamp(14px, 3vw, 22px) 0;
+        }
+        .step-panel {
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: clamp(16px, 4vw, 22px) clamp(12px, 3vw, 18px);
+            margin: clamp(14px, 3vw, 20px) 0;
+            box-shadow: var(--shadow-inner);
+        }
+        .step-panel--warn {
+            background: linear-gradient(165deg, rgb(254 252 232 / 0.85), rgb(255 251 235 / 0.5));
+            border-color: rgb(251 191 36 / 0.25);
+        }
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: stretch;
+            margin: 12px 0 4px;
         }
         a.button {
-            display: inline-block;
-            padding: 12px 30px;
-            margin: 8px 0;
-            background: #ac0000;
-            color: #fff;
-            border-radius: 5px;
-            font-weight: 500;
+            touch-action: manipulation;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 46px;
+            padding: 12px clamp(18px, 4vw, 28px);
+            margin: 4px 0;
+            background: linear-gradient(145deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff !important;
+            border-radius: 999px;
+            font-weight: 600;
             text-decoration: none;
-            font-size: 1.05em;
-            transition: background 0.9s;
+            font-size: clamp(0.92rem, 2.4vw, 1.02rem);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            max-width: 100%;
+            box-shadow: 0 4px 14px var(--primary-glow);
+            border: none;
         }
-        a.button:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-            transition: box-shadow 0.4s cubic-bezier(0.4,0,0.2,1);
+        a.button:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 3px;
+        }
+        @media (max-width: 480px) {
+            a.button {
+                width: 100%;
+            }
+            .btn-row a.button {
+                flex: 1 1 100%;
+                min-width: 0;
+            }
+        }
+        @media (min-width: 481px) {
+            a.button:hover {
+                filter: brightness(1.05);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px var(--primary-glow);
+            }
+        }
+        a.button:active {
+            transform: translateY(0);
         }
         .note {
-            color: #757575;
-            font-size: 0.96em;
-            margin-top: 30px;
+            color: var(--text-muted);
+            font-size: clamp(0.82rem, 2.1vw, 0.92rem);
+            margin-top: clamp(22px, 4vw, 32px);
+            padding: clamp(14px, 3vw, 18px);
+            background: var(--surface-soft);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            line-height: 1.55;
         }
-        img {
+        .note a {
+            color: var(--link);
+            font-weight: 500;
+            text-decoration: none;
+            border-bottom: 1px solid rgb(37 99 235 / 0.35);
+            word-break: break-word;
+            transition: border-color 0.15s ease, color 0.15s ease;
+        }
+        .note a:hover {
+            border-bottom-color: var(--link);
+            color: #1d4ed8;
+        }
+        .hero-img {
             border: 0;
-            max-width: 330px;
-            margin-bottom: 18px;
-            border-radius: 7px;
+            width: 100%;
+            height: auto;
+            margin: 0 auto 22px;
+            display: block;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 30px rgb(15 23 42 / 0.1);
         }
         /* Полноэкранный лоадер */
         #loader {
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                env(safe-area-inset-bottom) env(safe-area-inset-left);
+            background: rgb(15 23 42 / 0.65);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: center;
+            gap: 14px;
             z-index: 9999;
-            transition: opacity 0.5s;
+            transition: opacity 0.45s ease, visibility 0.45s ease;
         }
         #loader.hidden {
             opacity: 0;
             pointer-events: none;
+            visibility: hidden;
+        }
+        body.loading {
+            overflow: hidden;
+        }
+        #loader .loader-inner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 20px 26px;
+            background: rgb(255 255 255 / 0.12);
+            border: 1px solid rgb(255 255 255 / 0.18);
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgb(0 0 0 / 0.2);
+        }
+        #loader span {
+            color: #f8fafc;
+            font-size: clamp(0.9rem, 2.4vw, 1rem);
+            font-weight: 500;
+            text-align: left;
+            max-width: min(88vw, 280px);
+            letter-spacing: -0.01em;
         }
         .spinner {
-            width: 50px; height: 50px;
-            border: 5px solid #fff;
-            border-top: 5px solid transparent;
+            width: clamp(38px, 9vw, 46px);
+            height: clamp(38px, 9vw, 46px);
+            border: 3px solid rgb(255 255 255 / 0.25);
+            border-top-color: #fff;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.75s linear infinite;
+            flex-shrink: 0;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .spinner { animation: none; border-top-color: transparent; border-color: #fff; opacity: 0.9; }
+            a.button { transition: none; }
+            #loader { transition: opacity 0.2s ease; }
+            .troubleshoot-menu__animate { transition: none; }
+            .troubleshoot-menu__summary::after { transition: none; }
+        }
+        /* Выпадающее меню «Решение проблем» — плавное раскрытие (grid 0fr → 1fr) */
+        .troubleshoot-menu {
+            margin: clamp(14px, 3vw, 22px) 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface-soft);
+            text-align: left;
+            overflow: hidden;
+            box-shadow: var(--shadow-inner);
+        }
+        .troubleshoot-menu__animate {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .troubleshoot-menu[open] .troubleshoot-menu__animate {
+            grid-template-rows: 1fr;
+        }
+        .troubleshoot-menu__animate > .troubleshoot-menu__body {
+            overflow: hidden;
+            min-height: 0;
+        }
+        .troubleshoot-menu__summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: clamp(14px, 3vw, 18px) clamp(16px, 4vw, 20px);
+            font-size: clamp(1rem, 2.6vw, 1.12rem);
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+        .troubleshoot-menu__summary::-webkit-details-marker {
+            display: none;
+        }
+        .troubleshoot-menu__summary::after {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-right: 2px solid var(--text-muted);
+            border-bottom: 2px solid var(--text-muted);
+            transform: rotate(45deg);
+            transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            margin-top: -4px;
+        }
+        .troubleshoot-menu[open] .troubleshoot-menu__summary::after {
+            transform: rotate(-135deg);
+            margin-top: 4px;
+        }
+        .troubleshoot-menu__summary:hover {
+            background: rgb(241 245 249 / 0.85);
+        }
+        .troubleshoot-menu__summary:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: -2px;
+        }
+        .troubleshoot-menu__body {
+            padding: 0 clamp(12px, 3vw, 18px) clamp(16px, 3vw, 20px);
+            border-top: 1px solid var(--border);
+            background: rgb(255 255 255 / 0.55);
+            text-align: center;
+        }
+        .troubleshoot-menu__body .step-panel {
+            margin-top: clamp(12px, 3vw, 16px);
+        }
+        .troubleshoot-menu__body .step-panel:first-child {
+            margin-top: clamp(12px, 3vw, 14px);
+        }
+        .troubleshoot-menu__body .step-panel:last-child {
+            margin-bottom: 0;
+        }
+        .troubleshoot-menu__body h2,
+        .troubleshoot-menu__body h3 {
+            text-align: center;
+        }
+        .troubleshoot-menu__body p {
+            text-align: center;
+        }
     </style>
 </head>
-<body>
-    <div id="loader">
-        <div class="spinner"></div>
-        <div style="color: white; margin-left: 20px;">Пожалуйста подождите, идет смена сервера...</div>
+<body class="loading">
+    <div id="loader" aria-busy="true" aria-label="Загрузка страницы">
+        <div class="loader-inner">
+            <div class="spinner" aria-hidden="true"></div>
+            <span>Пожалуйста подождите, идет загрузка. Просьба не закрывать и не перезагружать страницу...</span>
+        </div>
     </div>
     <div class="container">
-        <img src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN Photo">
+        <img class="hero-img" src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN" loading="eager" decoding="async">
         {% if user.action %}
-        <div class="section">
+        <div class="section step-panel">
             <h2>1. Скачайте приложение VPN</h2>
             <a href="{{ app_link }}" class="button">Скачать приложение</a><br>
-            <p>Обращаем ваще внимание, что сервер сам определит с какого вы устройства и скачает нужное приложение.</p>
+            <p>Обращаем ваше внимание, что сервер сам определит с какого вы устройства и скачает нужное приложение.</p>
         </div>
-        
-        <div class="section">
+        {% if user.protocol == 2 %}
+        <div class="section step-panel">
             <h2>2. Получите VPN подписку</h2>
             <a href="{{ sub_link }}" class="button">Настроить приложение</a>
         </div>
-        <div>
-            <a href="/sub/transfer_other_server?token={{ token }}" class="button" id="reloadBtn">Сменить сервер</a>
-        </div>
-        <div>
-            <h2>Ручная настройка</h2>
-            <p>Если вам не удалось настроить приложение автоматически в первых 2х пунктах, вы можете воспользоваться ручной настройкой.</p>
-            <p>Для этого нажмите на одну из кнопок ниже, в буфер обмена скопируется ссылка на подписку(рекомендуется) или ключ (для приложений не поддерживающих ссылку на подписку).</p>
-            <p>После вставьте данную ссылку в приложение</p>
-            <a class="button" id="copy_sub_url">Скопировать подписку</a>
-            <a class="button" id="copy_vless">Скопировать ключ</a>
-        </div>
         {% else %}
-        <div class="section">
+        <div class="section step-panel">
+            <h2>2. Получите VPN подписку</h2>
+            <a class="button" id="copy_vless">Скопировать ключ</a>
+            <p>Скопируйте ключ и вставьте его в приложении. После чего можно подключаться.</p>
+        </div>
+        {% endif %}
+        <details class="troubleshoot-menu">
+            <summary class="troubleshoot-menu__summary">Решение проблем</summary>
+            <div class="troubleshoot-menu__animate">
+            <div class="troubleshoot-menu__body">
+                {% if user.protocol == 2 %}
+                <div class="step-panel">
+                    <h2>Ручная настройка</h2>
+                    <p>Если вам не удалось настроить приложение автоматически в первых 2х пунктах, вы можете воспользоваться ручной настройкой.</p>
+                    <p>Для этого нажмите на одну из кнопок ниже, в буфер обмена скопируется ссылка на подписку(рекомендуется) или ключ (для приложений не поддерживающих ссылку на подписку).</p>
+                    <p>После вставьте данную ссылку в приложение</p>
+                    <div class="btn-row">
+                        <a class="button" id="copy_sub_url">Скопировать подписку</a>
+                        <a class="button" id="copy_vless">Скопировать ключ</a>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="step-panel step-panel--warn">
+                    <h3>Если не работает</h3>
+                    <p>Часто устройства, которые стоят у провайдеров от РКН временно глушат определенные сервера VPN по паттернам поведения. Поэтому для начала попробуйте сменить сервер. Кнопка отрабатывает довольно долго, поэтому дожитесь загрузки. Обратите внимание что достаточно 1 раз попробовать сменить сервер. Если это требуется несколько раз в день, переходите сразу к следующим пунктам.</p>
+                    <a href="/sub/transfer_other_server?token={{ token }}" class="button reload-btn">Сменить сервер</a>
+                    <p>Если смена сервера не дала результата, вы можете поменять протокол подключения, это также помогает в некоторых случаях. Обратите внимание, что после этого действия нужно будет удалить приложение которое у вас установлено и наастроить пункт 1 и 2 заново.</p>
+                    <a href="/sub/transfer_protocol?token={{ token }}" class="button reload-btn">Сменить протокол</a>
+                </div>
+            </div>
+            </div>
+        </details>
+        {% else %}
+        <div class="section step-panel">
             <h2>Ваша подписка окончена</h2>
             <a href="{{ pay_link }}" class="button">Оплатить подписку на месяц.</a><br>
             <p>После оплаты самостоятельно обновляйте страницу, пока в место кнопки оплаты не появятся кнопки с настройкой.</p>
@@ -124,39 +410,58 @@
             или через почту <a href="mailto:597730754a@gmail.com">597730754a@gmail.com</a>.
         </p>
     </div>
-</body>
     <script>
-        // Копирование подписок (без изменений)
-        document.getElementById("copy_sub_url").addEventListener("click", () => {
-            navigator.clipboard.writeText("{{ sub_url_manual }}");
-            alert("Скопировано!");
-        });
-        document.getElementById("copy_vless").addEventListener("click", () => {
-            navigator.clipboard.writeText("{{ user.server_link }}");
-            alert("Скопировано!");
-        });
+        (function () {
+            function hidePageLoader() {
+                var loader = document.getElementById('loader');
+                if (!loader) return;
+                loader.classList.add('hidden');
+                loader.setAttribute('aria-busy', 'false');
+                document.body.classList.remove('loading');
+            }
+            if (document.readyState === 'complete') {
+                hidePageLoader();
+            } else {
+                window.addEventListener('load', hidePageLoader);
+            }
+        })();
+    </script>
+    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link}|tojson }}</script>
+    <script>
+        const subPageData = JSON.parse(document.getElementById('sub-page-data').textContent);
+        const copySubUrl = document.getElementById('copy_sub_url');
+        if (copySubUrl) {
+            copySubUrl.addEventListener('click', () => {
+                navigator.clipboard.writeText(subPageData.sub_url_manual);
+                alert('Скопировано!');
+            });
+        }
+        const copyVless = document.getElementById('copy_vless');
+        if (copyVless) {
+            copyVless.addEventListener('click', () => {
+                navigator.clipboard.writeText(subPageData.server_link);
+                alert('Скопировано!');
+            });
+        }
 
-        // ЛОАДЕР для кнопки "Сменить сервер"
-        document.getElementById('reloadBtn').addEventListener('click', function(e) {
-            e.preventDefault();  // Предотвращаем немедленный переход
-            
-            // 1. Блокируем кнопку
-            this.disabled = true;
-            this.textContent = 'Загрузка сервера...';
-            
-            // 2. Показываем полноэкранный лоадер
-            const loader = document.getElementById('loader');
-            loader.style.display = 'flex';  // Показать лоадер
-            
-            // 3. Переходим на URL через 800мс (чтобы лоадер был виден)
-            setTimeout(() => {
-                window.location.href = this.href;  // Переход по ссылке кнопки
-            }, 800);
-        });
-
-        // Скрыть лоадер при загрузке страницы (если нужно)
-        window.addEventListener('load', () => {
-            document.getElementById('loader').style.display = 'none';
+        document.querySelectorAll('.reload-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.classList.remove('hidden');
+                    loader.style.visibility = 'visible';
+                    loader.setAttribute('aria-busy', 'true');
+                }
+                document.body.classList.add('loading');
+                this.style.pointerEvents = 'none';
+                this.textContent = 'Загрузка…';
+                const href = btn.href;
+                setTimeout(function () {
+                    window.location.href = href;
+                }, 50);
+            });
         });
     </script>
+</body>
 </html>
