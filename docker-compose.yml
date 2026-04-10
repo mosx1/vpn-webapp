@@ -1,5 +1,8 @@
 # Образ задаётся при деплое: DEPLOY_IMAGE=ghcr.io/owner/repo:<sha>
 # Локально: export DEPLOY_IMAGE=ghcr.io/owner/repo:latest && docker compose up
+#
+# config.ini не попадает в образ из CI (файл в .gitignore). Положите config.ini
+# в каталог с compose на сервере или укажите путь: CONFIG_INI_HOST=/path/to/config.ini
 
 services:
   web:
@@ -7,3 +10,5 @@ services:
     ports:
       - "${APP_PORT:-8000}:8000"
     restart: unless-stopped
+    volumes:
+      - ${CONFIG_INI_HOST:-./config.ini}:/vpn-webapp/config.ini:ro

@@ -1,4 +1,5 @@
 *.ini
+!config.example.ini
 .DS_store
 log.txt
 4D002912B4993245196BCCD3E033B394.txt
