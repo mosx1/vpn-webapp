@@ -12,7 +12,7 @@ from db.enums import Protocols
 from db.repository.security import SecurityRepository
 from db.repository.devices import Devices
 
-from configparser import ConfigParser
+from config_loader import read_config
 
 from methods.payment.yoomoneyMethods import get_link_payment
 
@@ -26,8 +26,7 @@ def get_link_subscription(telegram_id: str | int) -> str:
     """
         Отдает ссылку для получения подписки
     """
-    config = ConfigParser()
-    config.read('config.ini')
+    config = read_config()
 
     with SecurityRepository() as security_rep:
         token: str = jwt.encode(
@@ -46,8 +45,7 @@ def _() -> Response:
     """
     payload = {}
 
-    conf = ConfigParser()
-    conf.read('config.ini')
+    conf = read_config()
 
     raw_jwt = request.args.get('jwt').strip()
 
@@ -83,8 +81,7 @@ def linkIphone() -> Response:
         Создает ссылку для подписки
     """
 
-    config = ConfigParser()
-    config.read('config.ini')
+    config = read_config()
 
     request.headers.get('User-Agent')
     device_client: str = (request.headers.get('User-Agent').split("(")[1]).split(";")[0]
@@ -117,8 +114,7 @@ def linkIphone() -> Response:
 @sub.route('/home')
 def home_page() -> str | Response:
     
-    config = ConfigParser()
-    config.read('config.ini')
+    config = read_config()
 
     raw_jwt = request.args.get('token').strip()
 
@@ -168,8 +164,7 @@ def transfer_other_server() -> Response:
 @sub.route('/pay')
 def payment() -> Response:
 
-    config = ConfigParser()
-    config.read('config.ini')
+    config = read_config()
 
     label = str(uuid.uuid4())
     raw_jwt = request.args.get('token').strip()

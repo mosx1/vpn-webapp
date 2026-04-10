@@ -7,20 +7,17 @@ from methods.interfaces import UserControlBase
 from db.repository.servers import ServersRepository
 from db.models import ServersTable
 
-from configparser import ConfigParser
+from config_loader import read_config
+
+_amnezia_cfg = read_config()
 
 
 class UserControlAmneziaWG(UserControlBase):
-    
-    config = ConfigParser()
-    config.read("config.ini")
 
     auth = HTTPBasicAuth(
-        config["AmneziaWG"].get("login"),
-        config["AmneziaWG"].get("password")
+        _amnezia_cfg["AmneziaWG"].get("login"),
+        _amnezia_cfg["AmneziaWG"].get("password"),
     )
-
-    config = None
 
     @classmethod
     def get_server_id(cls, server_url: str) -> str:

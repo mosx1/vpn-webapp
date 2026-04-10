@@ -11,7 +11,7 @@ from methods.controller_manager_xray_api import UserControlXray
 from methods.controller_amneziawg import UserControlAmneziaWG
 from methods.interfaces import UserControlBase
 
-from configparser import ConfigParser
+from config_loader import read_config
 
 
 class UserControlFactory:
@@ -78,8 +78,7 @@ class UserControl:
 
 def get_current_user() -> User | None:
 
-    config = ConfigParser()
-    config.read('config.ini')
+    config = read_config()
 
     raw_jwt = request.args.get('token').strip()
 

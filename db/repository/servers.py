@@ -5,9 +5,9 @@ from db.models import ServersTable, User
 
 from sqlalchemy import select, func, text, and_
 
-from configparser import ConfigParser
-
 from typing import Any
+
+from config_loader import read_config
 
 
 
@@ -24,8 +24,7 @@ class ServersRepository(BaseRepository[ServersTable]):
         """
         # check_answers_servers()
 
-        conf = ConfigParser()
-        conf.read('config.ini')
+        conf = read_config()
 
         query = (
             select(

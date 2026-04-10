@@ -1,14 +1,13 @@
 from yoomoney import History, Quickpay, Client
 
-from configparser import ConfigParser
+from config_loader import read_config
 
 
 def getInfoLastPayment(label: str) -> dict:
     """
         Получает информацию о последнем платеже по идентификатору платежа
     """
-    conf = ConfigParser()
-    conf.read('config.ini')
+    conf = read_config()
 
     client = Client(conf['YooMoney'].get('token'))
 
@@ -37,8 +36,7 @@ def get_link_payment(label: str, month: int) -> str:
     """
         Создает ссылку на платеж
     """
-    conf = ConfigParser()
-    conf.read('config.ini')
+    conf = read_config()
 
     quickpay = Quickpay(
         receiver=conf['YooMoney'].get('WALLET_YOOMONEY_ID'),
