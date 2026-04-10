@@ -1,12 +1,13 @@
 # Образ задаётся при деплое: DEPLOY_IMAGE=ghcr.io/owner/repo:<sha>
 # Локально: export DEPLOY_IMAGE=ghcr.io/owner/repo:latest && docker compose up
 #
-# config.ini на сервере положите рядом с compose (scp с локальной машины).
-# Путь на хосте: CONFIG_INI_HOST=/path/to/config.ini
-# Если файла не было, Docker мог создать ПАПКУ config.ini — удалите её: rm -rf ./config.ini
+# config.ini в git не попадает; на сервере положите config.ini рядом с этим файлом
+# (как при деплое: DEPLOY_PATH — там же docker compose pull && up).
+# Монтируется ${CONFIG_INI_HOST:-./config.ini} относительно каталога compose.
 #
-# Альтернатива: уберите volume — тогда entrypoint скопирует config.example.ini в config.ini
-# (нужно заполнить секреты внутри контейнера или смонтировать свой файл).
+# Если файла не было при первом up, Docker мог создать ПАПКУ config.ini — удалите:
+#   rm -rf ./config.ini && cp config.example.ini config.ini && nano config.ini
+# Без volume (только образ): закомментируйте volumes ниже — entrypoint скопирует example в контейнер.
 
 services:
   web:
