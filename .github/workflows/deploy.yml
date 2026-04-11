@@ -9,7 +9,8 @@
 #     или Fine-grained: доступ к репозиторию пакетов.
 #
 # Переменные (Variables), по желанию:
-#   DEPLOY_PATH — каталог на сервере с docker-compose.yml (по умолчанию /opt/vpn-webapp).
+#   DEPLOY_PATH — каталог на сервере с docker-compose.yml (по умолчанию /root/vpn-webapp).
+#   DEPLOY_SSH_PORT — порт SSH (по умолчанию 22; задайте, если SSH не на стандартном порту).
 
 name: Deploy to server
 
@@ -20,10 +21,6 @@ on:
         description: Ветка для сборки и деплоя
         required: false
         default: main
-      ssh_port:
-        description: SSH-порт сервера
-        required: false
-        default: "22"
 
 concurrency:
   group: deploy-server
@@ -81,7 +78,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ github.event.inputs.ssh_port }}
+          port: ${{ vars.DEPLOY_SSH_PORT != '' && vars.DEPLOY_SSH_PORT || '22' }}
           envs: DEPLOY_IMAGE,GHCR_USER,GHCR_TOKEN
           script: |
             set -euo pipefail
