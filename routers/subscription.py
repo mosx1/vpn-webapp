@@ -75,7 +75,7 @@ def _() -> Response:
                 "В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его."
             )
             # b64encode принимает только bytes; заголовок — только ASCII → строка Base64.
-            headers["announce"] = base64.b64encode(_announce_ru.encode("utf-8")).decode("ascii")
+            headers["announce"] = base64.b64encode(_announce_ru.encode("utf-8")).decode("utf-8")
             subscription_data = "awg"
         return Response(
             subscription_data,
