@@ -63,15 +63,19 @@ def _() -> Response:
 
     with UsersRepository() as user_rep:
         user: User | None = user_rep.get_by_telegram_id(payload['telegram_id'])
-        
+        headers = {
+            "subscription-userinfo": f"expire={user.exit_date.timestamp()};",
+            "support-url": "https://t.me/open_vpn_sale_bot",
+            "profile-update-interval": 1,
+            "profile-web-page-url": "https://t.me/open_vpn_sale_bot"
+        }
+        subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
+        if user.protocol == Protocols.amneziawg.value:
+            headers['announce'] = f"В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его."
+            subscription_data = ""
         return Response(
-            base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8"),
-            headers={
-                "subscription-userinfo": f"expire={user.exit_date.timestamp()};",
-                "support-url": "https://t.me/open_vpn_sale_bot",
-                "profile-update-interval": 1,
-                "profile-web-page-url": "https://t.me/open_vpn_sale_bot"
-            }
+            subscription_data,
+            headers=headers
         )
     
 
