@@ -71,14 +71,7 @@ def _() -> Response:
         }
         subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
         if user.protocol == Protocols.amneziawg.value:
-            _announce_ru = (
-                "В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его."
-            )
-            # Happ: объявление в UTF-8 через Base64; в заголовке — префикс `base64:` (см. dev-docs app-management).
-            # Значение целиком ASCII → совместимо с uvicorn WSGI.
-            b64 = base64.b64encode(_announce_ru.encode("utf-8")).decode("ascii")
-            headers["announce"] = f"base64:{b64}"
-            subscription_data = "awg"
+            subscription_data = ("#announce:В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его.")
         return Response(
             subscription_data,
             headers=headers
