@@ -74,9 +74,11 @@ def _() -> Response:
             _announce_ru = (
                 "В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его."
             )
-            # b64encode принимает только bytes; заголовок — только ASCII → строка Base64.
-            headers["announce"] = base64.b64encode(_announce_ru.encode("utf-8"))
-            subscription_data = None
+            # Happ: объявление в UTF-8 через Base64; в заголовке — префикс `base64:` (см. dev-docs app-management).
+            # Значение целиком ASCII → совместимо с uvicorn WSGI.
+            b64 = base64.b64encode(_announce_ru.encode("utf-8")).decode("ascii")
+            headers["announce"] = f"base64:{b64}"
+            subscription_data = "awg"
         return Response(
             subscription_data,
             headers=headers
