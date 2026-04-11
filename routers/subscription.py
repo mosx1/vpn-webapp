@@ -76,7 +76,7 @@ def _() -> Response:
             )
             # b64encode принимает только bytes; заголовок — только ASCII → строка Base64.
             headers["announce"] = base64.b64encode(_announce_ru.encode("utf-8")).decode("utf-8")
-            subscription_data = "awg"
+            subscription_data = None
         return Response(
             subscription_data,
             headers=headers
