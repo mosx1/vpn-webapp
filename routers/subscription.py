@@ -71,7 +71,11 @@ def _() -> Response:
         }
         subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
         if user.protocol == Protocols.amneziawg.value:
-            headers['announce'] = base64.b64encode("В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его.").decode("utf-8")
+            _announce_ru = (
+                "В профиле выбран протокол AmneziaWG. Скачайте приложение AmneziaWG и настройте его."
+            )
+            # b64encode принимает только bytes; заголовок — только ASCII → строка Base64.
+            headers["announce"] = base64.b64encode(_announce_ru.encode("utf-8")).decode("ascii")
             subscription_data = "awg"
         return Response(
             subscription_data,
