@@ -54,7 +54,8 @@ class UserControlAmneziaWG(UserControlBase):
         return data_new_user["config"]
 
     @classmethod
-    def delete(cls, user_id: int, server_id: int):
+    def delete(cls, user_ids: set[int], server_id: int):
+        users_ids_str = [str(user_id) for user_id in user_ids]
         with ServersRepository() as server_repo:
                _server: ServersTable | None = server_repo.get_by_id(server_id)
         server_url: str = str(_server.links).split(':')[0]
@@ -64,12 +65,9 @@ class UserControlAmneziaWG(UserControlBase):
             auth=cls.auth
         )
         users: list = response.json()
-        amnezia_user_id = None
         for user in users:
-            if user["name"] == str(user_id):
-                amnezia_user_id = user["id"]
-                break
+            if user["name"] in users_ids_str:
+                requests.delete(
+                    f"http://{server_url}:8084/api/servers/{amnezia_server_id}/clients/{user["id"]}"
+                )
         
-        requests.delete(
-            f"http://{server_url}:8084/api/servers/{amnezia_server_id}/clients/{amnezia_user_id}"
-        )

@@ -37,7 +37,7 @@ class UserControl:
             users_repo.update(self.user.telegram_id, {"action": False})
             users_repo.session.commit()
         self.protocol_methods.delete(set([self.user.telegram_id]), self.user.server_id)
-        self.__init__()
+        self.__init__(self.user.telegram_id)
     
     def add(self, server_id: int) -> None:
         link = self.protocol_methods.add(self.user.telegram_id, server_id)
@@ -50,7 +50,7 @@ class UserControl:
                 }
             )
             users_repo.session.commit()
-        self.__init__()
+        self.__init__(self.user.telegram_id)
     
     def update_protocol(self, protocol: Protocols) -> None:
         self.protocol_methods.delete(set([self.user.telegram_id]), self.user.server_id)

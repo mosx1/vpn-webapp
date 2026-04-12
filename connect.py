@@ -1,7 +1,6 @@
 import logging
 
 from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session
 
 from config_loader import read_config
 
