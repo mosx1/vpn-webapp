@@ -1,6 +1,6 @@
-import base64, jwt, uuid
+import base64, jwt, uuid, datetime
 
-from typing import Any, Protocol
+from typing import Any
 
 from flask import Blueprint, Response, render_template, request, redirect
 
@@ -104,7 +104,7 @@ def linkIphone() -> Response:
             deeplink_start = 'hiddify://import/'
 
         case _:
-            return Response('Воспользуйтесь ручной наастройкой')
+            return Response('Воспользуйтесь ручной настройкой')
     
     raw_jwt = request.args.get('token').strip()
 
@@ -121,10 +121,9 @@ def linkIphone() -> Response:
 
 
 @sub.route('/home')
-def home_page() -> str | Response:
+def home_page() -> Response:
     
     config = read_config()
-
     raw_jwt = request.args.get('token').strip()
 
     with SecurityRepository() as security_rep:
@@ -135,24 +134,26 @@ def home_page() -> str | Response:
         )
     with UsersRepository() as user_rep:
         user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
-    aw = user.protocol == Protocols.amneziawg.value
-    sub = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
-    app_link = f"https://{config['BaseConfig'].get('host')}/download_app?aw={aw}"
-    pay_link = f"https://{config['BaseConfig'].get('host')}/sub/pay?token={raw_jwt}&month=1"
+    aw: bool = user.protocol == Protocols.amneziawg.value
+    sub_link = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
+    app_link = f"/download_app?aw={aw}"
+    pay_link = f"/sub/pay?token={raw_jwt}&month=1"
 
     link: str = get_link_subscription(data_from_jwt['telegram_id'])
     protocol_name = _PROTOCOL_DISPLAY.get(user.protocol, str(user.protocol))
+    subscription_exit: bool = user.exit_date > datetime.datetime.now()
 
     return Response(
         render_template(
             'sub_home.html',
-            sub_link=sub,
+            sub_link=sub_link,
             app_link=app_link,
             pay_link=pay_link,
             user=user,
             sub_url_manual=link,
             token=raw_jwt,
             protocol_name=protocol_name,
+            subscription_exit=subscription_exit
         )
     )
 
@@ -222,4 +223,15 @@ def transfer_protocol() -> Response:
     user_control = UserControl(user.telegram_id)
     user_control.update_protocol(new_protocol)
     
+    return redirect(f'/sub/home?token={raw_jwt}')
+
+
+@sub.route('/resume')
+def resume() -> Response:
+    raw_jwt = request.args.get('token').strip()
+    user: User = get_current_user()
+
+    user_control = UserControl(user.telegram_id)
+    user_control.add(user.server_id)
+
     return redirect(f'/sub/home?token={raw_jwt}')
