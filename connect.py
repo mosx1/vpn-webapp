@@ -6,7 +6,6 @@ from config_loader import read_config
 
 logging.basicConfig(
     level=logging.INFO,
-    filename = "logs.txt",
     format="%(asctime)s %(levelname)s %(message)s"
 )
 

@@ -1,12 +1,10 @@
-import http, methods.common, uvicorn
+import http, methods.common, uvicorn, threads
 
 from routers.vpn_app import vpn_app_bp
 from routers.subscription import sub
 
 from flask import Flask
-from flask import request, redirect, send_from_directory, render_template
-
-from db.repository.devices import Devices
+from flask import send_from_directory, render_template
 
 
 app = Flask(__name__)
