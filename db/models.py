@@ -39,6 +39,7 @@ class ServersTable(Base):
     name: Column = Column(TEXT, nullable=False)
     speed: Column = Column(INTEGER)
     answers: Column = Column(BOOLEAN, nullable=False, server_default=text("true"))
+    panel_xray: Column = Column(SMALLINT, nullable=False)
 
 
 class CountryTable(Base):

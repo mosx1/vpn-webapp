@@ -13,5 +13,6 @@ logging.basicConfig(
 config = read_config()
 
 engine: Engine = create_engine(
-    f"postgresql+psycopg2://{config['Postgres'].get('user')}:{config['Postgres'].get('password')}@{config['Postgres'].get('host')}:{config['Postgres'].get('port')}/{config['Postgres'].get('dbname')}"
+    f"postgresql+psycopg2://{config['Postgres'].get('user')}:{config['Postgres'].get('password')}@{config['Postgres'].get('host')}:{config['Postgres'].get('port')}/{config['Postgres'].get('dbname')}",
+    echo=config['Postgres'].getboolean('echo', False)
 )

@@ -5,10 +5,12 @@ from typing import Any
 from flask import request
 from db.repository.users import UsersRepository
 from db.repository.security import SecurityRepository
-from db.models import User
+from db.repository.servers import ServersRepository
+from db.models import ServersTable, User
 from db.enums import Protocols
 from methods.controller_manager_xray_api import UserControlXray
 from methods.controller_amneziawg import UserControlAmneziaWG
+from methods.controller_3x_ui import UserControl3xUI
 from methods.interfaces import UserControlBase
 
 from config_loader import read_config
@@ -16,13 +18,15 @@ from config_loader import read_config
 
 class UserControlFactory:
     _protocols = {
-        Protocols.xray.value: UserControlXray,
-        Protocols.amneziawg.value: UserControlAmneziaWG
+        Protocols.xray.value: [UserControlXray, UserControl3xUI],
+        Protocols.amneziawg.value: [UserControlAmneziaWG]
     }
     @classmethod
     def get_methods_for_protocol(self, user: User) -> UserControlBase:
         self.user = user
-        return self._protocols[self.user.protocol]
+        with ServersRepository() as servers_repo:
+            server: ServersTable = servers_repo.get_by_id(self.user.server_id)
+        return self._protocols[self.user.protocol][server.panel_xray]
 
 
 class UserControl:

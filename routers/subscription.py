@@ -24,6 +24,7 @@ sub = Blueprint('sub', __name__, url_prefix='/sub')
 _PROTOCOL_DISPLAY: dict[int, str] = {
     Protocols.xray.value: "Xray",
     Protocols.amneziawg.value: "AmneziaWG",
+    Protocols.xui3.value: "3x-ui",
 }
 
 
@@ -53,6 +54,8 @@ def _() -> Response:
     conf = read_config()
 
     raw_jwt = request.args.get('jwt').strip()
+    if not raw_jwt:
+        raw_jwt = request.args.get('token').strip()
 
     with SecurityRepository() as security_rep:
         payload = jwt.decode(
@@ -166,7 +169,6 @@ def transfer_other_server() -> Response:
     
     with ServersRepository() as server_rep:
         server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
-    
     user_control = UserControl(user.telegram_id)
     user_control.delete()
     user_control.add(server_id)
