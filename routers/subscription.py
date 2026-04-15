@@ -170,8 +170,7 @@ def transfer_other_server() -> Response:
     with ServersRepository() as server_rep:
         server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
     user_control = UserControl(user.telegram_id)
-    user_control.delete()
-    user_control.add(server_id)
+    user_control.update_server(server_id)
     return redirect(f"/sub/home?token={raw_jwt}")
 
 
