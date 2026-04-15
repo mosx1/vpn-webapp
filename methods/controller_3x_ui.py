@@ -233,7 +233,7 @@ class UserControl3xUI(UserControlBase):
                     client.get("email"),
                 )
                 continue
-
+            
             del_resp: Response = session.post(
                 f"{server.links}/panel/api/inbounds/{inbound_id}/delClient/{client_id}",
                 timeout=20,

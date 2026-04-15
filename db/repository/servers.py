@@ -40,9 +40,6 @@ class ServersRepository(BaseRepository[ServersTable]):
                 ), 
                 isouter=True
             )
-            .filter(
-                ServersTable.answers == True
-            )
         )
         
         if country:
