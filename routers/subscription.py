@@ -139,6 +139,7 @@ def home_page() -> Response:
         user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
     aw: bool = user.protocol == Protocols.amneziawg.value
     sub_link = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
+    param_aw = ""
     if aw:
         param_aw = f"?aw={aw}"
 
