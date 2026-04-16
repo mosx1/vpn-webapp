@@ -53,9 +53,10 @@ def _() -> Response:
 
     conf = read_config()
 
-    raw_jwt = request.args.get('jwt').strip()
+    raw_jwt = request.args.get('jwt')
     if not raw_jwt:
-        raw_jwt = request.args.get('token').strip()
+        raw_jwt = request.args.get('token')
+    raw_jwt = raw_jwt.strip()
 
     with SecurityRepository() as security_rep:
         payload = jwt.decode(
