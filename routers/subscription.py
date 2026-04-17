@@ -1,4 +1,8 @@
-import base64, jwt, uuid, datetime
+import base64
+import datetime
+import uuid
+
+import jwt
 
 from typing import Any
 
@@ -53,9 +57,7 @@ def _() -> Response:
 
     conf = read_config()
 
-    raw_jwt = request.args.get('jwt')
-    if not raw_jwt:
-        raw_jwt = request.args.get('token')
+    raw_jwt = request.args.get('jwt', request.args.get('token'))
     raw_jwt = raw_jwt.strip()
 
     with SecurityRepository() as security_rep:
@@ -138,6 +140,8 @@ def home_page() -> Response:
         )
     with UsersRepository() as user_rep:
         user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
+    with ServersRepository() as server_rep:
+        server: ServersTable = server_rep.get_by_id(user.server_id)
     aw: bool = user.protocol == Protocols.amneziawg.value
     sub_link = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
     param_aw = ""
@@ -146,6 +150,7 @@ def home_page() -> Response:
 
     app_link = f"/download_app{param_aw}"
     pay_link = f"/sub/pay?token={raw_jwt}&month=1"
+    month_price = config['Price'].getint('RUB')
 
     link: str = get_link_subscription(data_from_jwt['telegram_id'])
     protocol_name = _PROTOCOL_DISPLAY.get(user.protocol, str(user.protocol))
@@ -157,6 +162,8 @@ def home_page() -> Response:
             sub_link=sub_link,
             app_link=app_link,
             pay_link=pay_link,
+            month_price=month_price,
+            server_name=server.name,
             user=user,
             sub_url_manual=link,
             token=raw_jwt,

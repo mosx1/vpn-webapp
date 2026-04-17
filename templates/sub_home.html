@@ -165,6 +165,82 @@
         a.button:active {
             transform: translateY(0);
         }
+        .pay-modal[hidden] {
+            display: none;
+        }
+        .pay-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgb(15 23 42 / 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .pay-modal__dialog {
+            width: min(100%, 360px);
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 22px 18px 18px;
+            box-shadow: var(--shadow-lg);
+            text-align: left;
+        }
+        .pay-modal__title {
+            margin: 0 0 10px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+            text-align: center;
+        }
+        .pay-modal__label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        .pay-modal__input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font: inherit;
+            font-size: 1rem;
+            color: var(--text);
+            background: var(--surface-soft);
+        }
+        .pay-modal__input:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+        .pay-modal__actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .pay-modal__amount {
+            margin: 14px 0 0;
+            text-align: center;
+            font-size: 0.98rem;
+            color: var(--text);
+            font-weight: 600;
+        }
+        .pay-modal__amount span {
+            color: var(--primary-dark);
+        }
+        .pay-modal__cancel {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 12px 18px;
+            font: inherit;
+            font-weight: 600;
+            color: var(--text);
+            background: transparent;
+            cursor: pointer;
+        }
         .note {
             color: var(--text-muted);
             font-size: clamp(0.82rem, 2.1vw, 0.92rem);
@@ -362,7 +438,14 @@
     </div>
     <div class="container">
         <img class="hero-img" src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN" loading="eager" decoding="async">
-        <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p>
+        <!-- <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p> -->
+        <div class="section step-panel">
+            <h2>Информация о подписке:</h2>
+            <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p>
+            <p class="protocol-current">Текущий сервер: <strong>{{ server_name }}</strong></p>
+            <p class="protocol-current">Срок подписки: до <strong>{{ user.exit_date.strftime('%d.%m.%Y') }}</strong></p>
+            <a href="{{ pay_link }}" class="button" id="open-pay-modal">Продлить</a><br>
+        </div>
         {% if user.action %}
         <div class="section step-panel">
             <h2>1. Скачайте приложение VPN</h2>
@@ -417,12 +500,32 @@
             {% else %}
             <div class="section step-panel">
                 <h2>Ваша подписка окончена</h2>
-                <a href="{{ pay_link }}" class="button">Оплатить на месяц</a><br>
+                <a href="{{ pay_link }}" class="button" id="open-pay-modal">Оплатить</a><br>
                 <p>После оплаты самостоятельно обновляйте страницу, пока в место кнопки оплаты не появятся кнопки с настройкой.</p>
                 <p>Если у вас работае телеграмм, вы также получите уведомление и туда.</p>
             </div>
             {% endif %}
         {% endif %}
+        <div class="pay-modal" id="pay-modal" hidden>
+            <div class="pay-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="pay-modal-title">
+                <h3 class="pay-modal__title" id="pay-modal-title">На какой срок?</h3>
+                <label class="pay-modal__label" for="pay-months-input">Введите количество месяцев</label>
+                <input
+                    class="pay-modal__input"
+                    id="pay-months-input"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    value="1"
+                >
+                <p class="pay-modal__amount">К оплате: <span id="pay-total-amount">{{ month_price }} руб.</span></p>
+                <div class="pay-modal__actions">
+                    <a href="{{ pay_link }}" class="button" id="pay-modal-confirm">Перейти к оплате</a>
+                    <button type="button" class="pay-modal__cancel" id="pay-modal-cancel">Отмена</button>
+                </div>
+            </div>
+        </div>
         <p class="note">
             Если возникнут вопросы — свяжитесь с поддержкой 
             <a href="https://t.me/open_vpn_sale_bot" target="_blank">через ТГ-бот</a>  
@@ -445,7 +548,7 @@
             }
         })();
     </script>
-    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link}|tojson }}</script>
+    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price}|tojson }}</script>
     <script>
         const subPageData = JSON.parse(document.getElementById('sub-page-data').textContent);
         const copySubUrl = document.getElementById('copy_sub_url');
@@ -460,6 +563,63 @@
             copyVless.addEventListener('click', () => {
                 navigator.clipboard.writeText(subPageData.server_link);
                 alert('Скопировано!');
+            });
+        }
+        const openPayModal = document.getElementById('open-pay-modal');
+        const payModal = document.getElementById('pay-modal');
+        const payModalCancel = document.getElementById('pay-modal-cancel');
+        const payModalConfirm = document.getElementById('pay-modal-confirm');
+        const payMonthsInput = document.getElementById('pay-months-input');
+        const payTotalAmount = document.getElementById('pay-total-amount');
+        if (openPayModal && payModal && payModalCancel && payModalConfirm && payMonthsInput && payTotalAmount) {
+            const formatAmount = function (amount) {
+                return amount.toLocaleString('ru-RU') + ' руб.';
+            };
+            const updatePayAmount = function () {
+                const monthCount = parseInt(payMonthsInput.value, 10);
+                const safeMonthCount = Number.isInteger(monthCount) && monthCount > 0 ? monthCount : 1;
+                payTotalAmount.textContent = formatAmount(subPageData.month_price * safeMonthCount);
+            };
+            const closePayModal = function () {
+                payModal.hidden = true;
+                document.body.classList.remove('loading');
+            };
+            const openModal = function () {
+                payModal.hidden = false;
+                document.body.classList.add('loading');
+                updatePayAmount();
+                setTimeout(function () {
+                    payMonthsInput.focus();
+                    payMonthsInput.select();
+                }, 0);
+            };
+            openPayModal.addEventListener('click', function (e) {
+                e.preventDefault();
+                openModal();
+            });
+            payModalCancel.addEventListener('click', closePayModal);
+            payModal.addEventListener('click', function (e) {
+                if (e.target === payModal) {
+                    closePayModal();
+                }
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !payModal.hidden) {
+                    closePayModal();
+                }
+            });
+            payMonthsInput.addEventListener('input', updatePayAmount);
+            payModalConfirm.addEventListener('click', function (e) {
+                e.preventDefault();
+                const monthCount = parseInt(payMonthsInput.value, 10);
+                if (!Number.isInteger(monthCount) || monthCount < 1) {
+                    alert('Введите количество месяцев от 1 и больше.');
+                    payMonthsInput.focus();
+                    return;
+                }
+                const payUrl = new URL(payModalConfirm.href, window.location.origin);
+                payUrl.searchParams.set('month', String(monthCount));
+                window.location.href = payUrl.toString();
             });
         }
 
