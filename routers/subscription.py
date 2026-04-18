@@ -27,8 +27,7 @@ sub = Blueprint('sub', __name__, url_prefix='/sub')
 
 _PROTOCOL_DISPLAY: dict[int, str] = {
     Protocols.xray.value: "Xray",
-    Protocols.amneziawg.value: "AmneziaWG",
-    Protocols.xui3.value: "3x-ui",
+    Protocols.amneziawg.value: "AmneziaWG"
 }
 
 

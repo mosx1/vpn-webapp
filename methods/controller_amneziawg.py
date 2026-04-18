@@ -34,15 +34,20 @@ class UserControlAmneziaWG(UserControlBase):
         
         return res_data[0]["id"]
 
+    @classmethod
+    def get_server_url(cls, server_links: str) -> str:
+        if server_links.startswith('http'):
+            server_url = server_links.split('://')[-1]
+        server_url: str = str(server_url).split(':')[0]
+        return server_url
+
 
     @classmethod
     def add(cls, user_id: int, server_id: int) -> str | None:
         
         with ServersRepository() as server_repo:
                _server: ServersTable | None = server_repo.get_by_id(server_id)
-        server_url: str = str(_server.links).split(':')[0]
-        if server_url.startswith('http'):
-            server_url = server_url.split('://')[1]
+        server_url: str = cls.get_server_url(_server.links)
         amnezia_server_id: str = cls.get_server_id(server_url)
         response: Response = requests.post(
             f"http://{server_url}:8084/api/servers/{amnezia_server_id}/clients",
@@ -60,7 +65,7 @@ class UserControlAmneziaWG(UserControlBase):
         users_ids_str = [str(user_id) for user_id in user_ids]
         with ServersRepository() as server_repo:
                _server: ServersTable | None = server_repo.get_by_id(server_id)
-        server_url: str = str(_server.links).split(':')[0]
+        server_url: str = cls.get_server_url(_server.links)
         amnezia_server_id: str = cls.get_server_id(server_url)
         response: Response = requests.get(
             f"http://{server_url}:8084/api/servers/{amnezia_server_id}/clients",

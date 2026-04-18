@@ -460,8 +460,7 @@
         {% else %}
         <div class="section step-panel">
             <h2>2. Получите VPN подписку</h2>
-            <a class="button" id="copy_vless">Скопировать ключ</a>
-            <p>Скопируйте ключ и вставьте его в приложении. После чего можно подключаться.</p>
+            <a class="button" id="download_conf">Скачать фаил конфигурации</a>
         </div>
         {% endif %}
         <details class="troubleshoot-menu">
@@ -548,7 +547,7 @@
             }
         })();
     </script>
-    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price}|tojson }}</script>
+    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price, 'user_id': (user.id|string), 'protocol_is_two': (user.protocol == 2)}|tojson }}</script>
     <script>
         const subPageData = JSON.parse(document.getElementById('sub-page-data').textContent);
         const copySubUrl = document.getElementById('copy_sub_url');
@@ -558,11 +557,34 @@
                 alert('Скопировано!');
             });
         }
-        const copyVless = document.getElementById('copy_vless');
-        if (copyVless) {
-            copyVless.addEventListener('click', () => {
-                navigator.clipboard.writeText(subPageData.server_link);
-                alert('Скопировано!');
+        const downloadConfButton = document.getElementById('download_conf');
+        const copyVlessButtons = document.querySelectorAll('[id="copy_vless"]');
+        const downloadConfFile = function () {
+            const userIdRaw = String(subPageData.user_id || '').trim();
+            const safeBaseName = userIdRaw ? userIdRaw.replace(/[^\w.-]+/g, '_') : 'user_config';
+            const fileName = safeBaseName.endsWith('.conf') ? safeBaseName : safeBaseName + '.conf';
+            const confBlob = new Blob([subPageData.server_link], { type: 'application/octet-stream' });
+            const confUrl = URL.createObjectURL(confBlob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = confUrl;
+            downloadLink.download = fileName;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(confUrl);
+        };
+        if (downloadConfButton) {
+            downloadConfButton.addEventListener('click', function (e) {
+                e.preventDefault();
+                downloadConfFile();
+            });
+        }
+        if (copyVlessButtons.length > 0) {
+            copyVlessButtons.forEach(function (copyVless) {
+                copyVless.addEventListener('click', () => {
+                    navigator.clipboard.writeText(subPageData.server_link);
+                    alert('Скопировано!');
+                });
             });
         }
         const openPayModal = document.getElementById('open-pay-modal');
