@@ -7,7 +7,7 @@ from db.repository.users import UsersRepository
 from db.repository.security import SecurityRepository
 from db.repository.servers import ServersRepository
 from db.models import ServersTable, User
-from db.enums import Protocols
+from db.enums import Protocols, PanelXray
 from methods.controller_manager_xray_api import UserControlXray
 from methods.controller_amneziawg import UserControlAmneziaWG
 from methods.controller_3x_ui import UserControl3xUI
@@ -26,7 +26,17 @@ class UserControlFactory:
         self.user = user
         with ServersRepository() as servers_repo:
             server: ServersTable = servers_repo.get_by_id(self.user.server_id)
-        return self._protocols[self.user.protocol][server.panel_xray]
+        match self.user.protocol:
+            case Protocols.amneziawg.value:
+                return UserControlAmneziaWG(self.user)
+            case Protocols.xray.value:
+                match server.panel_xray:
+                    case PanelXray.xray.value:
+                        return UserControlXray(self.user)
+                    case PanelXray.xui.value:
+                        return UserControl3xUI(self.user)
+                    case _:
+                        raise ValueError(f"Invalid panel xray: {server.panel_xray}")
 
 
 class UserControl:
