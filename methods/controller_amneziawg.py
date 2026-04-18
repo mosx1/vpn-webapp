@@ -41,6 +41,8 @@ class UserControlAmneziaWG(UserControlBase):
         with ServersRepository() as server_repo:
                _server: ServersTable | None = server_repo.get_by_id(server_id)
         server_url: str = str(_server.links).split(':')[0]
+        if server_url.startswith('http'):
+            server_url = server_url.split('://')[1]
         amnezia_server_id: str = cls.get_server_id(server_url)
         response: Response = requests.post(
             f"http://{server_url}:8084/api/servers/{amnezia_server_id}/clients",
