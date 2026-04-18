@@ -230,8 +230,7 @@ def transfer_protocol() -> Response:
         case Protocols.xray.value:
             new_protocol = Protocols.amneziawg
         case Protocols.amneziawg.value:
-            new_protocol = Protocols.xray.value
-
+            new_protocol = Protocols.xray
 
     user_control = UserControl(user.telegram_id)
     user_control.update_protocol(new_protocol)
