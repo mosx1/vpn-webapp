@@ -226,17 +226,12 @@ def transfer_protocol() -> Response:
 
     raw_jwt = request.args.get('token').strip()
     user: User = get_current_user()
-    with ServersRepository() as server_repo:
-        server: ServersTable = server_repo.get_by_id(user.server_id)
     match user.protocol:
         case Protocols.xray.value:
             new_protocol = Protocols.amneziawg
         case Protocols.amneziawg.value:
-            match server.panel_xray:
-                case 0:
-                    new_protocol = Protocols.xray
-                case 1:
-                    new_protocol = Protocols.xui3
+            new_protocol = Protocols.xray.value
+
 
     user_control = UserControl(user.telegram_id)
     user_control.update_protocol(new_protocol)
