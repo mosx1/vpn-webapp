@@ -35,10 +35,10 @@ class UserControlAmneziaWG(UserControlBase):
         return res_data[0]["id"]
 
     @classmethod
-    def get_server_url(cls, server_links: str) -> str:
-        if server_links.startswith('http'):
-            server_url = server_links.split('://')[-1]
-        server_url: str = str(server_url).split(':')[0]
+    def get_server_url(cls, server_url: str) -> str:
+        if server_url.startswith('http'):
+            server_url = server_url.split('://')[-1]
+        server_url: str = server_url.split(':')[0]
         return server_url
 
 
