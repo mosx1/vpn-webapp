@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
-    <title>Вход — VPN</title>
+    <title>Регистрация — VPN</title>
     <style>
         :root {
             --font: "DM Sans", system-ui, -apple-system, sans-serif;
@@ -108,7 +108,7 @@
             color: var(--text);
             letter-spacing: -0.02em;
         }
-        .login-form {
+        .register-form {
             max-width: 320px;
             margin: 0 auto;
             text-align: left;
@@ -143,9 +143,11 @@
             border-color: rgb(220 38 38 / 0.45);
             box-shadow: 0 0 0 3px rgb(220 38 38 / 0.12);
         }
-        .form-field input:disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
+        .register-step {
+            display: none;
+        }
+        .register-step.is-active {
+            display: block;
         }
         .form-error {
             margin: 0 0 14px;
@@ -155,12 +157,6 @@
             background: rgb(254 226 226 / 0.45);
             border: 1px solid rgb(248 113 113 / 0.35);
             border-radius: var(--radius-sm);
-            line-height: 1.45;
-        }
-        .form-hint {
-            margin: 12px 0 0;
-            font-size: clamp(0.78rem, 2vw, 0.86rem);
-            color: var(--text-muted);
             line-height: 1.45;
         }
         .form-actions {
@@ -207,7 +203,8 @@
         .form-actions button.button {
             width: auto;
         }
-        a.button.button--secondary {
+        a.button.button--secondary,
+        button.button.button--secondary {
             background: var(--surface);
             color: var(--text);
             border: 1px solid var(--border);
@@ -219,19 +216,14 @@
             outline: 2px solid var(--primary);
             outline-offset: 3px;
         }
-        button.button:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none;
-            filter: none;
-        }
         @media (min-width: 481px) {
             button.button:hover:not(:disabled) {
                 filter: brightness(1.05);
                 transform: translateY(-2px);
                 box-shadow: 0 8px 24px var(--primary-glow);
             }
-            a.button.button--secondary:hover {
+            a.button.button--secondary:hover,
+            button.button.button--secondary:hover:not(:disabled) {
                 background: rgb(248 250 252);
                 border-color: rgb(148 163 184 / 0.4);
                 transform: translateY(-2px);
@@ -241,6 +233,21 @@
         button.button:active:not(:disabled),
         a.button:active {
             transform: translateY(0);
+        }
+        .back-link {
+            margin-top: 1rem;
+            font-size: clamp(0.88rem, 2.2vw, 0.95rem);
+            text-align: center;
+        }
+        .back-link a {
+            color: var(--link);
+            font-weight: 500;
+            text-decoration: none;
+            border-bottom: 1px solid rgb(37 99 235 / 0.35);
+        }
+        .back-link a:hover {
+            border-bottom-color: var(--link);
+            color: #1d4ed8;
         }
         .note {
             color: var(--text-muted);
@@ -258,137 +265,47 @@
             text-decoration: none;
             border-bottom: 1px solid rgb(37 99 235 / 0.35);
             word-break: break-word;
-            transition: border-color 0.15s ease, color 0.15s ease;
         }
         .note a:hover {
             border-bottom-color: var(--link);
             color: #1d4ed8;
         }
-        #loader {
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            padding: env(safe-area-inset-top) env(safe-area-inset-right)
-                env(safe-area-inset-bottom) env(safe-area-inset-left);
-            background: rgb(15 23 42 / 0.65);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 14px;
-            z-index: 9999;
-            transition: opacity 0.45s ease, visibility 0.45s ease;
-        }
-        #loader.hidden {
-            opacity: 0;
-            pointer-events: none;
-            visibility: hidden;
-        }
-        body.loading { overflow: hidden; }
-        #loader .loader-inner {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 20px 26px;
-            background: rgb(255 255 255 / 0.12);
-            border: 1px solid rgb(255 255 255 / 0.18);
-            border-radius: 20px;
-            box-shadow: 0 12px 40px rgb(0 0 0 / 0.2);
-        }
-        #loader span {
-            color: #f8fafc;
-            font-size: clamp(0.9rem, 2.4vw, 1rem);
-            font-weight: 500;
-            text-align: left;
-            max-width: min(88vw, 280px);
-            letter-spacing: -0.01em;
-        }
-        .spinner {
-            width: clamp(38px, 9vw, 46px);
-            height: clamp(38px, 9vw, 46px);
-            border: 3px solid rgb(255 255 255 / 0.25);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.75s linear infinite;
-            flex-shrink: 0;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) {
-            .spinner { animation: none; border-top-color: transparent; border-color: #fff; opacity: 0.9; }
             button.button,
             a.button { transition: none; }
-            #loader { transition: opacity 0.2s ease; }
         }
     </style>
 </head>
-<body class="loading">
-    <div id="loader" aria-busy="true" aria-label="Загрузка страницы">
-        <div class="loader-inner">
-            <div class="spinner" aria-hidden="true"></div>
-            <span>Пожалуйста подождите, идёт загрузка…</span>
-        </div>
-    </div>
+<body>
     <div class="container">
         <img class="hero-img" src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VPN" loading="eager" decoding="async">
-        <h1>Вход в аккаунт</h1>
-        <p class="lead">Введите email и пароль, чтобы продолжить.</p>
+        <h1>Авторизация</h1>
         <div class="step-panel">
-            <h2>Email и пароль</h2>
-            {% if login_error == 'bad' %}
-            <p class="form-error" role="alert">Неверный email или пароль.</p>
-            {% elif login_error == 'csrf' %}
-            <p class="form-error" role="alert">Сессия устарела. Обновите страницу и попробуйте снова.</p>
-            {% elif login_error == 'empty' %}
-            <p class="form-error" role="alert">Введите email и пароль.</p>
-            {% elif login_error == 'disabled' %}
-            <p class="form-error" role="alert">Вход не настроен на сервере. Задайте VPN_WEB_EMAIL и VPN_WEB_PASSWORD.</p>
-            {% endif %}
-            <form method="post" action="{{ url_for('auth_login') }}" class="login-form" autocomplete="on">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <div class="form-field">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" autocomplete="email" inputmode="email"
-                        placeholder="you@example.com"
-                        {% if password_login_enabled %}required{% else %}disabled{% endif %}>
-                </div>
-                <div class="form-field">
-                    <label for="password">Пароль</label>
-                    <input type="password" id="password" name="password" autocomplete="current-password"
-                        {% if password_login_enabled %}required{% else %}disabled{% endif %}>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="button" {% if not password_login_enabled %}disabled aria-disabled="true"{% endif %}>Войти</button>
-                    <a href="{{ url_for('auth_register') }}" class="button button--secondary">Регистрация</a>
+            <form method="get" action="{{ url_for('auth.confirm_email') }}" class="register-form" autocomplete="on" novalidate>
+                <div class="register-step is-active" id="step-email" data-step="1">
+                    <div class="form-field">
+                        <label for="email">Введите email</label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            autocomplete="email"
+                            inputmode="email"
+                            placeholder="you@example.com"
+                            value=""
+                            required
+                        >
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="button">Продолжить</button>
+                    </div>
                 </div>
             </form>
-            {% if not password_login_enabled %}
-            <p class="form-hint">Задайте <strong>VPN_WEB_EMAIL</strong>, <strong>VPN_WEB_PASSWORD</strong> и <strong>FLASK_SECRET_KEY</strong>. Если <strong>VPN_WEB_EMAIL</strong> не задан, используется <strong>VPN_WEB_LOGIN</strong> (как email).</p>
-            {% endif %}
+            <p>На email будет отправлена ссылка на личный кабинет. Сохраните ее у себя в закладках браузера и не передвайте ее третьим лицам.</p>
         </div>
         <p class="note">
-            Нужна помощь? Напишите в поддержку
-            <a href="https://t.me/open_vpn_sale_bot" target="_blank" rel="noopener noreferrer">в Telegram</a>
-            или на почту <a href="mailto:597730754a@gmail.com">597730754a@gmail.com</a>.
+            Вопросы по почте: <a href="mailto:597730754a@gmail.com">597730754a@gmail.com</a>
         </p>
     </div>
-    <script>
-        (function () {
-            function hidePageLoader() {
-                var loader = document.getElementById('loader');
-                if (!loader) return;
-                loader.classList.add('hidden');
-                loader.setAttribute('aria-busy', 'false');
-                document.body.classList.remove('loading');
-            }
-            if (document.readyState === 'complete') {
-                hidePageLoader();
-            } else {
-                window.addEventListener('load', hidePageLoader);
-            }
-        })();
-    </script>
 </body>
 </html>

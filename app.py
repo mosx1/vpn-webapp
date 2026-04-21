@@ -2,6 +2,7 @@ import http, methods.common, uvicorn, threads
 
 from routers.vpn_app import vpn_app_bp
 from routers.subscription import sub
+from routers.auth import auth
 
 from flask import Flask
 from flask import send_from_directory, render_template
@@ -12,7 +13,7 @@ app.config['UPLOAD_FOLDER'] = ''
 app.config['JSON_AS_ASCII'] = False
 app.register_blueprint(vpn_app_bp)
 app.register_blueprint(sub)
-
+app.register_blueprint(auth)
 
 @app.route('/')
 def index():

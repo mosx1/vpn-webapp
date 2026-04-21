@@ -1,10 +1,12 @@
 from ..common import BaseRepository
 
-from db.models import User, ServersTable
+from db.models import User, ServersTable, UserNew
 
-from typing import Iterable, Any, Optional
+from typing import Iterable, Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, insert, text
+
+from connect import config
 
 
 
@@ -56,3 +58,33 @@ class UsersRepository(BaseRepository[User]):
         )
         result = self.session.execute(stmt)  # noqa: F811
         return result.scalar_one_or_none()
+    
+    def create_user_by_email(
+        self, 
+        email: str, 
+        telegram_id: int,
+        server_link: str,
+        server_id: int
+    ) -> None:
+        """Создание записи"""
+        
+        stmt2 = (
+            insert(User).values(
+                telegram_id=str(telegram_id),
+                exit_date=text(f"now() + interval '{config['BaseConfig'].getint('tree_days')} days'"),
+                action=True,
+                server_link=server_link,
+                server_id=str(server_id),
+                protocol=config['BaseConfig'].getint('default_protocol')
+            )
+        )
+        self.session.execute(stmt2)
+        stmt = (
+            insert(UserNew)
+            .values(
+                email=email,
+                telegram_id=telegram_id
+            )
+        )
+        self.session.execute(stmt)
+        return

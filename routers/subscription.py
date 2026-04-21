@@ -20,7 +20,7 @@ from config_loader import read_config
 
 from methods.payment.yoomoneyMethods import get_link_payment
 
-from methods.manager_users import UserControl, get_current_user
+from methods.manager_users import UserControl, get_current_user, get_link_subscription
 
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
@@ -29,23 +29,6 @@ _PROTOCOL_DISPLAY: dict[int, str] = {
     Protocols.xray.value: "Xray",
     Protocols.amneziawg.value: "AmneziaWG"
 }
-
-
-def get_link_subscription(telegram_id: str | int) -> str:
-    """
-        Отдает ссылку для получения подписки
-    """
-    config = read_config()
-
-    with SecurityRepository() as security_rep:
-        token: str = jwt.encode(
-            {"telegram_id": telegram_id},
-            security_rep.get(), 
-            algorithm=config['JWT'].get('algoritm')
-        )
-
-        return f"https://kuzmos.ru/sub?jwt={token}"
-
 
 @sub.route('/')
 def _() -> Response:

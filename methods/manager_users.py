@@ -6,8 +6,11 @@ from flask import request
 from db.repository.users import UsersRepository
 from db.repository.security import SecurityRepository
 from db.repository.servers import ServersRepository
-from db.models import ServersTable, User
+from db.repository.users_new import UsersNewRepository
+
+from db.models import ServersTable, User, UserNew
 from db.enums import Protocols, PanelXray
+
 from methods.controller_manager_xray_api import UserControlXray
 from methods.controller_amneziawg import UserControlAmneziaWG
 from methods.controller_3x_ui import UserControl3xUI
@@ -101,6 +104,32 @@ class UserControl:
         users_repo.update(user.telegram_id, {"server_link": link})
         users_repo.session.commit()
         self.__init__(user.telegram_id)
+    
+    @staticmethod
+    def create(email: str) -> None:
+        with ServersRepository() as servers_repo:
+            server_id: int = servers_repo.get_very_free_server()
+            server: ServersTable = servers_repo.get_by_id(server_id)
+        with UsersNewRepository() as users_new_repo:
+            users_new_id = users_new_repo.get_next_id_user()
+        match server.panel_xray:
+            case PanelXray.xray.value:
+                strategy = UserControlXray
+            case PanelXray.xui.value:
+                strategy = UserControl3xUI
+            case _:
+                raise ValueError(f"Invalid panel xray: {server.panel_xray}")
+        server_link = strategy.add(users_new_id, server_id)
+        with UsersRepository() as users_repo:
+            users_repo.create_user_by_email(
+                email=email,
+                telegram_id=users_new_id,
+                server_link=server_link,
+                server_id=server_id
+            )
+            
+            users_repo.session.commit()
+        return users_new_id
 
 
 def get_current_user() -> User | None:
@@ -117,3 +146,19 @@ def get_current_user() -> User | None:
         )
     with UsersRepository() as user_rep:
         return user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
+
+
+def get_link_subscription(telegram_id: str | int) -> str:
+    """
+        Отдает ссылку для получения подписки
+    """
+    config = read_config()
+
+    with SecurityRepository() as security_rep:
+        token: str = jwt.encode(
+            {"telegram_id": telegram_id},
+            security_rep.get(), 
+            algorithm=config['JWT'].get('algoritm')
+        )
+
+        return f"https://kuzmos.ru/sub?jwt={token}"

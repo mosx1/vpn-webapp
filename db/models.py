@@ -75,6 +75,17 @@ class SaleInvoicesInProgress(Base):
         ForeignKeyConstraint(['telegram_id'], ['users_subscription.telegram_id']),
         ForeignKeyConstraint(['server_id'], ['servers.id'])
     )
-    
+
+class UserNew(Base):
+
+    __tablename__: str = 'users'
+
+    id: Column = Column(BIGINT, primary_key=True)
+    email: Column = Column(TEXT, nullable=False)
+    telegram_id: Column = Column(BIGINT, nullable=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(['telegram_id'], ['users_subscription.telegram_id']),
+    )
     
 Base.metadata.create_all(engine)
