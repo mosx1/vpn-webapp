@@ -5,7 +5,7 @@ from routers.subscription import sub
 from routers.auth import auth
 
 from flask import Flask
-from flask import send_from_directory, render_template
+from flask import send_from_directory, redirect
 
 
 app = Flask(__name__)
@@ -17,8 +17,7 @@ app.register_blueprint(auth)
 
 @app.route('/')
 def index():
-    
-    return render_template('index.html')
+    return redirect('/auth/')
 
 
 @app.route('/download_app')
