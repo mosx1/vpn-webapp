@@ -17,3 +17,11 @@ class UsersNewRepository(BaseRepository[UserNew]):
         query = select(UserNew.id).order_by(UserNew.id.desc()).limit(1)
         result = self.session.execute(query)
         return (result.scalar_one() + 1) * -1
+
+    def get_by_id(self, telegram_id: int) -> UserNew | None:
+        """
+            Возвращает юзера по ид
+        """
+        query = select(UserNew).filter(UserNew.telegram_id == telegram_id)
+        result = self.session.execute(query)
+        return result.scalar_one_or_none()

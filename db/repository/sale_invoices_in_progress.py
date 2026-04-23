@@ -2,7 +2,7 @@ from ..common import BaseRepository
 
 from db.models import SaleInvoicesInProgress
 
-from sqlalchemy import insert
+from sqlalchemy import insert, select, func, text
 
 
 class SaleInvoicesInProgressRepository(BaseRepository[SaleInvoicesInProgress]):
@@ -19,4 +19,13 @@ class SaleInvoicesInProgressRepository(BaseRepository[SaleInvoicesInProgress]):
             month_count=month_count
         )
         self.session.execute(query)
-        self.session.commit()  
+        self.session.commit()
+
+    def get_sale_invoice_by_label(self) -> SaleInvoicesInProgress | None:
+        query = select(
+            SaleInvoicesInProgress, 
+            (SaleInvoicesInProgress.create_date + text("INTERVAL '1 hour'")).label("stop_date_time"),
+            func.now().label("current_date_time")
+        )
+        result = self.session.execute(query)
+        return result.fetchall()

@@ -3,12 +3,12 @@ import jwt
 from typing import Any
 
 from flask import request
+
 from db.repository.users import UsersRepository
 from db.repository.security import SecurityRepository
 from db.repository.servers import ServersRepository
 from db.repository.users_new import UsersNewRepository
-
-from db.models import ServersTable, User, UserNew
+from db.models import ServersTable, User
 from db.enums import Protocols, PanelXray
 
 from methods.controller_manager_xray_api import UserControlXray
@@ -17,6 +17,9 @@ from methods.controller_3x_ui import UserControl3xUI
 from methods.interfaces import UserControlBase
 
 from config_loader import read_config
+
+from sqlalchemy import text
+from datetime import datetime
 
 
 class UserControlFactory:
@@ -130,6 +133,21 @@ class UserControl:
             
             users_repo.session.commit()
         return users_new_id
+    
+    def prolongation(self, day: int) -> None:
+        with UsersRepository() as users_repo:
+            user: User = users_repo.get_by_telegram_id(self.user.telegram_id)
+            new_exit_date = text(f"exit_date + interval '{day} days'")
+            if user.exit_date < datetime.now():
+                new_exit_date =text(f"now() + interval '{day} days'")
+
+            users_repo.update(
+                self.user.telegram_id,
+                {
+                    "exit_date": new_exit_date
+                }
+            )
+            users_repo.session.commit()
 
 
 def get_current_user() -> User | None:
