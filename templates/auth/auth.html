@@ -143,6 +143,31 @@
             border-color: rgb(220 38 38 / 0.45);
             box-shadow: 0 0 0 3px rgb(220 38 38 / 0.12);
         }
+        .captcha-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .captcha-image {
+            width: 180px;
+            height: 60px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            display: block;
+        }
+        .captcha-refresh {
+            white-space: nowrap;
+            font-size: 0.9rem;
+            color: var(--link);
+            text-decoration: none;
+            border-bottom: 1px solid rgb(37 99 235 / 0.35);
+        }
+        .captcha-refresh:hover {
+            border-bottom-color: var(--link);
+            color: #1d4ed8;
+        }
         .register-step {
             display: none;
         }
@@ -282,6 +307,9 @@
         <h1>Авторизация</h1>
         <div class="step-panel">
             <form method="get" action="{{ url_for('auth.confirm_email') }}" class="register-form" autocomplete="on" novalidate>
+                {% if captcha_error %}
+                <p class="form-error" role="alert">{{ captcha_error }}</p>
+                {% endif %}
                 <div class="register-step is-active" id="step-email" data-step="1">
                     <div class="form-field">
                         <label for="email">Введите email</label>
@@ -292,7 +320,29 @@
                             autocomplete="email"
                             inputmode="email"
                             placeholder="you@example.com"
-                            value=""
+                            value="{{ email_value }}"
+                            required
+                        >
+                    </div>
+                    <input type="hidden" name="captcha_nonce" value="{{ captcha_nonce }}">
+                    <div class="form-field">
+                        <label for="captcha_code">Введите символы с картинки</label>
+                        <div class="captcha-box">
+                            <img
+                                class="captcha-image"
+                                src="{{ url_for('auth.captcha_image', nonce=captcha_nonce) }}"
+                                alt="Капча"
+                            >
+                            <a class="captcha-refresh" href="{{ url_for('auth.auth_main') }}">Обновить</a>
+                        </div>
+                        <input
+                            type="text"
+                            id="captcha_code"
+                            name="captcha_code"
+                            inputmode="latin"
+                            maxlength="5"
+                            autocomplete="off"
+                            placeholder="ABCDE"
                             required
                         >
                     </div>
