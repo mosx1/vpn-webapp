@@ -215,6 +215,12 @@
             outline: 2px solid var(--primary);
             outline-offset: 2px;
         }
+        .pay-modal__field {
+            margin-top: 12px;
+        }
+        .pay-modal__field[hidden] {
+            display: none;
+        }
         .pay-modal__actions {
             display: flex;
             flex-direction: column;
@@ -442,10 +448,16 @@
         <p class="protocol-current">Не передавайте ссылку на подписку другим людям, это может привести к потере скорости подписки.</p>
         <div class="section step-panel">
             <h2>Информация о подписке:</h2>
+            {% if email %}
+                <p class="protocol-current">Ваш email: <strong>{{ email }}</strong></p>
+            {% endif %}
             <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p>
             <p class="protocol-current">Текущий сервер: <strong>{{ server_name }}</strong></p>
             <p class="protocol-current">Срок подписки: до <strong>{{ user.exit_date.strftime('%d.%m.%Y') }}</strong></p>
-            <a href="{{ pay_link }}" class="button" id="open-pay-modal">Продлить</a><br>
+            <div class="btn-row">
+                <a href="{{ pay_link }}" class="button" data-pay-trigger="prolong">Продлить</a>
+                <a href="{{ pay_link }}" class="button" data-pay-trigger="gift">Подарить</a>
+            </div>
         </div>
         {% if user.action %}
         <div class="section step-panel">
@@ -500,7 +512,7 @@
             {% else %}
             <div class="section step-panel">
                 <h2>Ваша подписка окончена</h2>
-                <a href="{{ pay_link }}" class="button" id="open-pay-modal">Оплатить</a><br>
+                <a href="{{ pay_link }}" class="button" data-pay-trigger="prolong">Оплатить</a><br>
                 <p>После оплаты самостоятельно обновляйте страницу, пока в место кнопки оплаты не появятся кнопки с настройкой.</p>
                 <p>Если у вас работае телеграмм, вы также получите уведомление и туда.</p>
             </div>
@@ -519,6 +531,17 @@
                     inputmode="numeric"
                     value="1"
                 >
+                <div class="pay-modal__field" id="pay-gift-email-field" hidden>
+                    <label class="pay-modal__label" for="pay-gift-email-input">Email получателя подписки</label>
+                    <input
+                        class="pay-modal__input"
+                        id="pay-gift-email-input"
+                        type="email"
+                        inputmode="email"
+                        autocomplete="email"
+                        placeholder="friend@example.com"
+                    >
+                </div>
                 <p class="pay-modal__amount">К оплате: <span id="pay-total-amount">{{ month_price }} руб.</span></p>
                 <div class="pay-modal__actions">
                     <a href="{{ pay_link }}" class="button" id="pay-modal-confirm">Перейти к оплате</a>
@@ -605,13 +628,16 @@
                 });
             });
         }
-        const openPayModal = document.getElementById('open-pay-modal');
+        const openPayModalButtons = document.querySelectorAll('[data-pay-trigger]');
         const payModal = document.getElementById('pay-modal');
         const payModalCancel = document.getElementById('pay-modal-cancel');
         const payModalConfirm = document.getElementById('pay-modal-confirm');
         const payMonthsInput = document.getElementById('pay-months-input');
         const payTotalAmount = document.getElementById('pay-total-amount');
-        if (openPayModal && payModal && payModalCancel && payModalConfirm && payMonthsInput && payTotalAmount) {
+        const payGiftEmailField = document.getElementById('pay-gift-email-field');
+        const payGiftEmailInput = document.getElementById('pay-gift-email-input');
+        if (openPayModalButtons.length && payModal && payModalCancel && payModalConfirm && payMonthsInput && payTotalAmount && payGiftEmailField && payGiftEmailInput) {
+            let payMode = 'prolong';
             const formatAmount = function (amount) {
                 return amount.toLocaleString('ru-RU') + ' руб.';
             };
@@ -624,18 +650,30 @@
                 payModal.hidden = true;
                 document.body.classList.remove('loading');
             };
-            const openModal = function () {
+            const openModal = function (mode, baseHref) {
+                payMode = mode;
                 payModal.hidden = false;
                 document.body.classList.add('loading');
                 updatePayAmount();
+                payModalConfirm.href = baseHref;
+                const isGiftMode = payMode === 'gift';
+                payGiftEmailField.hidden = !isGiftMode;
+                payGiftEmailInput.value = '';
                 setTimeout(function () {
-                    payMonthsInput.focus();
-                    payMonthsInput.select();
+                    if (isGiftMode) {
+                        payGiftEmailInput.focus();
+                    } else {
+                        payMonthsInput.focus();
+                        payMonthsInput.select();
+                    }
                 }, 0);
             };
-            openPayModal.addEventListener('click', function (e) {
-                e.preventDefault();
-                openModal();
+            openPayModalButtons.forEach(function (button) {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const mode = button.dataset.payTrigger === 'gift' ? 'gift' : 'prolong';
+                    openModal(mode, button.href);
+                });
             });
             payModalCancel.addEventListener('click', closePayModal);
             payModal.addEventListener('click', function (e) {
@@ -655,6 +693,31 @@
                 if (!Number.isInteger(monthCount) || monthCount < 1) {
                     alert('Введите количество месяцев от 1 и больше.');
                     payMonthsInput.focus();
+                    return;
+                }
+                if (payMode === 'gift') {
+                    const recipientEmail = payGiftEmailInput.value.trim().toLowerCase();
+                    if (!recipientEmail) {
+                        alert('Введите email получателя.');
+                        payGiftEmailInput.focus();
+                        return;
+                    }
+                    const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+                    if (!emailPattern.test(recipientEmail)) {
+                        alert('Введите корректный email получателя.');
+                        payGiftEmailInput.focus();
+                        return;
+                    }
+                    if (recipientEmail.length > 255) {
+                        alert('Email слишком длинный.');
+                        payGiftEmailInput.focus();
+                        return;
+                    }
+                    const payUrl = new URL(payModalConfirm.href, window.location.origin);
+                    payUrl.searchParams.set('month', String(monthCount));
+                    payUrl.searchParams.set('gift', '1');
+                    payUrl.searchParams.set('gift_email', recipientEmail);
+                    window.location.href = payUrl.toString();
                     return;
                 }
                 const payUrl = new URL(payModalConfirm.href, window.location.origin);

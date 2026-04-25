@@ -1,4 +1,5 @@
 import time
+import jwt
 
 from connect import logging
 
@@ -11,9 +12,11 @@ from configparser import ConfigParser
 from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
 from db.repository.users import UsersRepository
 from db.repository.users_new import UsersNewRepository
+from db.repository.security import SecurityRepository
 
 from methods.manager_users import UserControl
 from methods.mail.email_sender import send_yandex_email
+from config_loader import read_config
 
 
 def check_payments() -> None:
@@ -27,31 +30,26 @@ def check_payments() -> None:
 
             invoices = siip_repo.get_sale_invoice_by_label()
             
-            for invoice_item in invoices:
-                
-                invoice: SaleInvoicesInProgress = invoice_item[0]
-                stop_date_time = invoice_item[1]
-                current_date_time = invoice_item[2]
+        for invoice_item in invoices:
+            
+            invoice: SaleInvoicesInProgress = invoice_item[0]
+            stop_date_time = invoice_item[1]
+            current_date_time = invoice_item[2]
 
-                try:
-                    info_last_payment: dict | None = getInfoLastPayment(invoice.label)
-                except Exception as e:
-                    print(str(e))
-                    continue
-                
-                if not invoice.is_gift and info_last_payment and invoice.server_id:
-                    success_payment(invoice)
-                # if invoice.is_gift and (invoice.telegram_id == config['Telegram'].getint('admin_chat') or (info_last_payment and not invoice.server_id)):
-                #     success_payment_gift(invoice, config)
+            try:
+                info_last_payment: dict | None = getInfoLastPayment(invoice.label)
+            except Exception as e:
+                print(str(e))
+                continue
+            
+            if not invoice.is_gift and info_last_payment and invoice.server_id:
+                success_payment(invoice)
+            if invoice.is_gift and info_last_payment:
+                success_payment_gift(invoice)
 
-                if (
-                    current_date_time.strftime("%Y-%m-%d %H:%M:%S") > stop_date_time.strftime("%Y-%m-%d %H:%M:%S")
-                    ) or info_last_payment or (
-                        invoice.telegram_id == config['Telegram'].getint('admin_chat') and invoice.is_gift
-                    ):
-                    siip_repo.delete(invoice.id)
-
-            time.sleep(2)
+            if current_date_time.strftime("%Y-%m-%d %H:%M:%S") > stop_date_time.strftime("%Y-%m-%d %H:%M:%S"):
+                delete_invoice(invoice)
+        time.sleep(2)
 
 
 def success_payment(invoice: SaleInvoicesInProgress):
@@ -83,98 +81,54 @@ def success_payment(invoice: SaleInvoicesInProgress):
         if not user.action:
             user_control.add(invoice.server_id)
 
-        with SaleInvoicesInProgressRepository() as siip_repo:
-            siip_repo.delete(invoice.id)
+        delete_invoice(invoice)
 
 
-# def success_payment_gift(invoice: SaleInvoicesInProgress, config: ConfigParser):
-#     """
-#     Process successful gift payment with proper error handling and file handle management.
-#     """
-#     user: User | None = get_user_by_id(invoice.telegram_id)
+def success_payment_gift(invoice: SaleInvoicesInProgress) -> None:
+    recipient_email = (invoice.gift_recipient_email or '').strip().lower()
+    if not recipient_email:
+        logging.error(f'Recipient email is empty for gift invoice {invoice.id}')
+        return
 
-#     if not user:
-#         logging.error(f'User not found for gift invoice {invoice.id}, telegram_id: {invoice.telegram_id}')
-#         return
+    recipient_user_id: int | None = None
+    with UsersNewRepository() as users_new_repo:
+        recipient_user = users_new_repo.get_one(UserNew.email == recipient_email)
+        if recipient_user:
+            recipient_user_id = recipient_user.telegram_id
 
-#     logging.info(
-#         "user_id: {}; user_name:{}; Оплата подарочной подписки {} мес.".format(
-#             user.telegram_id,
-#             user.name,
-#             invoice.month_count
-#         )
-#     )
+    if not recipient_user_id:
+        recipient_user_id = UserControl.create(recipient_email)
 
-#     # Step 1: Generate gift code
-#     try:
-#         hash = genGiftCode(invoice.month_count)
-#     except Exception as e:
-#         logging.error(f'Failed to generate gift code for invoice {invoice.id}: {str(e)}')
-#         bot.send_message(
-#             config['Telegram']['admin_chat'],
-#             f'Ошибка генерации подарочного кода\nпоток: check_payments\nerror: ```' + utils.form_text_markdownv2(str(e)) + "```"
-#         )
-#         return
+    user_control = UserControl(recipient_user_id)
+    user_control.prolongation(invoice.month_count * 30)
 
-#     # Step 2: Notify admin about gift purchase
-#     try:
-#         bot.send_message(
-#             config['Telegram'].getint('admin_chat'),
-#             "[{}](tg://user?id\={}) оплатил подарочную подписку".format(utils.form_text_markdownv2(user.name), user.telegram_id),
-#             parse_mode=ParseMode.mdv2.value
-#         )
-#     except Exception as e:
-#         logging.error(f'Failed to notify admin about gift purchase by {user.telegram_id}: {str(e)}')
+    with UsersRepository() as users_repo:
+        recipient_subscription: User | None = users_repo.get_by_telegram_id(recipient_user_id)
+        if recipient_subscription and not recipient_subscription.action:
+            user_control.add(recipient_subscription.server_id)
 
-#     # Step 3: Delete payment message
-#     try:
-#         bot.delete_message(
-#             invoice.chat_id,
-#             invoice.message_id
-#         )
-#     except Exception as e:
-#         logging.error(f'Failed to delete gift payment message: {str(e)}')
+    config = read_config()
+    with SecurityRepository() as security_rep:
+        token: str = jwt.encode(
+            {"telegram_id": recipient_user_id},
+            security_rep.get(),
+            algorithm=config['JWT'].get('algoritm')
+        )
 
-#     # Step 4: Get MTProto URL
-#     try:
-#         mtproto = get_url_mtproto(user.server_id)
-#     except Exception as e:
-#         logging.error(f'Failed to get MTProto URL for server {user.server_id}: {str(e)}')
-#         mtproto = "Недоступно"
+    send_yandex_email(
+        to_email=recipient_email,
+        subject="Вам подарили VPN подписку",
+        text_body=(
+            "Для входа в личный кабинет перейдите по ссылке: "
+            f"https://kuzmos.ru/sub/home?token={token}"
+        )
+    )
+    delete_invoice(invoice)
 
-#     # Step 5: Send gift photo with proper file handle management
-#     photoMessage: Message | None = None
 
-#     with open("static/logo_big.jpeg", "rb") as photo:
-#         photoMessage = bot.send_photo(
-#             chat_id=user.telegram_id,
-#             photo=photo,
-#             caption=config['MessagesTextMD'].get('gift_postcard').format(
-#                 code=hash,
-#                 date=invoice.month_count,
-#                 mtproto=mtproto
-#             ),
-#             parse_mode=ParseMode.mdv2.value
-#         )
-
-#     # Step 6: Send reply message
-#     try:
-#         bot.reply_to(
-#             photoMessage,
-#             "Перешлите это сообщение другу в качестве подарка. Спасибо что помогаете нам делать интернет доступнее."
-#         )
-#     except Exception as e:
-#         logging.error(f'Failed to send reply to gift message for {user.telegram_id}: {str(e)}')
-
-#     # Step 7: Final admin notification
-#     try:
-#         bot.send_message(
-#             config['Telegram']['admin_chat'],
-#             "[" + utils.form_text_markdownv2(user.name) + "](tg://user?id\=" + str(user.telegram_id) + ") оплатил подарочную подписку",
-#             parse_mode=ParseMode.mdv2.value
-#         )
-#     except Exception as e:
-#         logging.error(f'Failed to send final admin notification for gift by {user.telegram_id}: {str(e)}')
-
-#     # Step 8: Delete invoice after successful completion
-#     del_invoice(invoice)
+def delete_invoice(invoice: SaleInvoicesInProgress) -> None:
+    with SaleInvoicesInProgressRepository() as siip_repo:
+        deleted = siip_repo.delete(int(invoice.id))
+        siip_repo.session.commit()
+        if not deleted:
+            logging.warning(f'Failed to delete paid gift invoice: id={invoice.id}, label={invoice.label}')

@@ -70,6 +70,8 @@ class SaleInvoicesInProgress(Base):
     message_id: Column = Column(BIGINT, nullable=False)
     chat_id: Column = Column(BIGINT, nullable=False)
     create_date: Column = Column(TIMESTAMP, nullable=False, server_default=func.now())
+    is_gift = Column(BOOLEAN, nullable=False, server_default=text("false"))
+    gift_recipient_email: Column = Column(TEXT, nullable=True)
 
     __table_agrs___ = (
         ForeignKeyConstraint(['telegram_id'], ['users_subscription.telegram_id']),
@@ -86,6 +88,18 @@ class UserNew(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(['telegram_id'], ['users_subscription.telegram_id']),
+    )
+
+class MTProxyConfigs(Base):
+
+    __tablename__: str = 'mtproxy_configs'
+
+    id = Column(BIGINT, primary_key=True)
+    server_id = Column(BIGINT, nullable=False)
+    url = Column(TEXT, nullable=False)
+
+    __table_agrs__ = (
+        ForeignKeyConstraint(['server_id'], ['servers.id'])
     )
     
 Base.metadata.create_all(engine)
