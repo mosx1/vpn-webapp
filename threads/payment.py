@@ -129,14 +129,23 @@ def success_payment_gift(invoice: SaleInvoicesInProgress) -> None:
 
 
 def delete_invoice(invoice: SaleInvoicesInProgress) -> None:
-    with SaleInvoicesInProgressRepository() as siip_repo:
-        try:
-            # Avoid hanging worker forever on row lock contention.
-            siip_repo.session.execute(text("SET LOCAL lock_timeout = '2s'"))
-            deleted = siip_repo.delete(int(invoice.id))
-            siip_repo.session.commit()
-            if not deleted:
-                logging.warning(f'Invoice already removed or not found: id={invoice.id}, label={invoice.label}')
-        except OperationalError as e:
-            siip_repo.session.rollback()
-            logging.warning(f'Lock timeout while deleting invoice id={invoice.id}, label={invoice.label}: {e}')
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        with SaleInvoicesInProgressRepository() as siip_repo:
+            try:
+                # Don't block worker forever if row is locked by another transaction.
+                siip_repo.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                deleted = siip_repo.delete(int(invoice.id))
+                siip_repo.session.commit()
+                if not deleted:
+                    logging.warning(f'Invoice already removed or not found: id={invoice.id}, label={invoice.label}')
+                return
+            except OperationalError as e:
+                siip_repo.session.rollback()
+                if attempt == max_attempts:
+                    logging.error(
+                        f'Failed to delete invoice after {max_attempts} attempts '
+                        f'id={invoice.id}, label={invoice.label}: {e}'
+                    )
+                    return
+                time.sleep(0.35 * attempt)
