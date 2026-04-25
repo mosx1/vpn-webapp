@@ -2,6 +2,8 @@ import time
 import jwt
 
 from connect import logging
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from db.models import User, SaleInvoicesInProgress, UserNew
 
@@ -128,7 +130,13 @@ def success_payment_gift(invoice: SaleInvoicesInProgress) -> None:
 
 def delete_invoice(invoice: SaleInvoicesInProgress) -> None:
     with SaleInvoicesInProgressRepository() as siip_repo:
-        deleted = siip_repo.delete(int(invoice.id))
-        siip_repo.session.commit()
-        if not deleted:
-            logging.warning(f'Failed to delete paid gift invoice: id={invoice.id}, label={invoice.label}')
+        try:
+            # Avoid hanging worker forever on row lock contention.
+            siip_repo.session.execute(text("SET LOCAL lock_timeout = '2s'"))
+            deleted = siip_repo.delete(int(invoice.id))
+            siip_repo.session.commit()
+            if not deleted:
+                logging.warning(f'Invoice already removed or not found: id={invoice.id}, label={invoice.label}')
+        except OperationalError as e:
+            siip_repo.session.rollback()
+            logging.warning(f'Lock timeout while deleting invoice id={invoice.id}, label={invoice.label}: {e}')

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, Optional, List, Any
-from unittest import result
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update, delete
 
@@ -102,7 +101,12 @@ class BaseRepository(AbstractRepository[T], SQLASession):
         return self
     
     def __exit__(self, _type, _val, _tb):
-        return
+        try:
+            if _type is not None:
+                self.session.rollback()
+        finally:
+            self.session.close()
+        return False
     
     @property
     def model(self) -> type[T]:
