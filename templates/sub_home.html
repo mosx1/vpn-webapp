@@ -237,6 +237,14 @@
         .pay-modal__amount span {
             color: var(--primary-dark);
         }
+        .pay-modal__text {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            text-align: center;
+            max-width: 100%;
+        }
         .pay-modal__cancel {
             border: 1px solid var(--border);
             border-radius: 999px;
@@ -457,6 +465,7 @@
             <div class="btn-row">
                 <a href="{{ pay_link }}" class="button" data-pay-trigger="prolong">Продлить</a>
                 <a href="{{ pay_link }}" class="button" data-pay-trigger="gift">Подарить</a>
+                <a href="#" class="button" data-router-modal-trigger="open">Купить роутер</a>
             </div>
             {% if is_admin %}
                 <a href="/admin?token={{ token }}" class="button">Панель администратора</a>
@@ -554,6 +563,30 @@
                 </div>
             </div>
         </div>
+        <div class="pay-modal" id="router-modal" hidden>
+            <div class="pay-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="router-modal-title">
+                <h3 class="pay-modal__title" id="router-modal-title">Роутер с Выгодным VPN</h3>
+                <h4>Заказывая у нас роутер вы получаете:</h4>
+                <ul>
+                    <li>VPN подписку на 1 год на все ваши устройства, включая роутер</li>
+                    <li>Современный роутер с подключением через Ethernet и WiFi6</li>
+                    <li>Видеоинструкции по настройке и установке</li>
+                    <li>Возможность забыть об ограничениях интернета дома, на даче или в офисе</li>
+                </ul>
+                <p>Стоимость роутера: 6500 руб. Информация в объявлении на авито не является подлинной(для того чтоб авито не блокировал объявление).</p>
+                <div class="pay-modal__actions">
+                    <a
+                        href="https://www.avito.ru/moskva/tovary_dlya_kompyutera/wifi_router_7887374755"
+                        class="button"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Перейти на Avito
+                    </a>
+                    <button type="button" class="pay-modal__cancel" id="router-modal-cancel">Закрыть</button>
+                </div>
+            </div>
+        </div>
         <details class="troubleshoot-menu">
             <summary class="troubleshoot-menu__summary">Видео инструкции</summary>
             <div class="troubleshoot-menu__animate">
@@ -641,6 +674,9 @@
         const payTotalAmount = document.getElementById('pay-total-amount');
         const payGiftEmailField = document.getElementById('pay-gift-email-field');
         const payGiftEmailInput = document.getElementById('pay-gift-email-input');
+        const openRouterModalButtons = document.querySelectorAll('[data-router-modal-trigger]');
+        const routerModal = document.getElementById('router-modal');
+        const routerModalCancel = document.getElementById('router-modal-cancel');
         if (openPayModalButtons.length && payModal && payModalCancel && payModalConfirm && payMonthsInput && payTotalAmount && payGiftEmailField && payGiftEmailInput) {
             let payMode = 'prolong';
             const formatAmount = function (amount) {
@@ -728,6 +764,33 @@
                 const payUrl = new URL(payModalConfirm.href, window.location.origin);
                 payUrl.searchParams.set('month', String(monthCount));
                 window.location.href = payUrl.toString();
+            });
+        }
+        if (openRouterModalButtons.length && routerModal && routerModalCancel) {
+            const openRouterModal = function () {
+                routerModal.hidden = false;
+                document.body.classList.add('loading');
+            };
+            const closeRouterModal = function () {
+                routerModal.hidden = true;
+                document.body.classList.remove('loading');
+            };
+            openRouterModalButtons.forEach(function (button) {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    openRouterModal();
+                });
+            });
+            routerModalCancel.addEventListener('click', closeRouterModal);
+            routerModal.addEventListener('click', function (e) {
+                if (e.target === routerModal) {
+                    closeRouterModal();
+                }
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !routerModal.hidden) {
+                    closeRouterModal();
+                }
             });
         }
 
