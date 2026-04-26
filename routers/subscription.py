@@ -31,7 +31,6 @@ _PROTOCOL_DISPLAY: dict[int, str] = {
     Protocols.amneziawg.value: "AmneziaWG"
 }
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_ADMIN_EMAIL = "597730754a@gmail.com"
 
 def _decode_token(raw_jwt: str) -> dict[str, Any]:
     config = read_config()
@@ -136,7 +135,7 @@ def home_page() -> Response:
         users_new: UserNew | None = users_new_repo.get_by_id(data_from_jwt['telegram_id'])
         if users_new:
             email = users_new.email
-            is_admin = email.strip().lower() == _ADMIN_EMAIL
+            is_admin = email.strip().lower() == config['BaseConfig'].get('admin_email')
     aw: bool = user.protocol == Protocols.amneziawg.value
     sub_link = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
     param_aw = ""

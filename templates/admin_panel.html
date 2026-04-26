@@ -112,6 +112,15 @@
             display: grid;
             gap: 10px;
         }
+        .list-loading {
+            margin-top: 12px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+        .list-loading[hidden] {
+            display: none;
+        }
         .user-row {
             width: 100%;
             text-align: left;
@@ -244,7 +253,7 @@
         </div>
 
         {% if users_data %}
-            <div class="users-list">
+            <div class="users-list" id="users-list">
                 {% for user_item in users_data %}
                     {% set user = user_item[0] %}
                     {% set user_email = user_item[1] %}
@@ -271,8 +280,11 @@
                     </button>
                 {% endfor %}
             </div>
+            <div class="list-loading" id="users-loading" {% if not users_has_more %}hidden{% endif %}>Загрузка пользователей...</div>
         {% else %}
-            <div class="empty">Пользователи не найдены.</div>
+            <div class="users-list" id="users-list"></div>
+            <div class="empty" id="users-empty">Пользователи не найдены.</div>
+            <div class="list-loading" id="users-loading" hidden>Загрузка пользователей...</div>
         {% endif %}
     </div>
 
@@ -310,7 +322,7 @@
                                 <option value="{{ protocol_item[0] }}">{{ protocol_item[1] }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="button button--muted" id="admin-change-protocol-btn">Применить протокол</button>
+                        <button type="button" class="button button--muted" id="admin-change-protocol-btn">Сменить протокол</button>
                     </div>
                     <div class="modal__group">
                         <label for="admin-server-link">server_link пользователя</label>
@@ -337,7 +349,15 @@
         </div>
     </div>
 
+    <script type="application/json" id="admin-page-data">{{ {
+        'token': token,
+        'search_query': search_query,
+        'initial_count': (users_data|length),
+        'has_more': users_has_more,
+        'page_size': users_page_size
+    }|tojson }}</script>
     <script>
+        const adminPageData = JSON.parse(document.getElementById('admin-page-data').textContent);
         const modal = document.getElementById('admin-user-modal');
         const userTitle = document.getElementById('admin-user-title');
         const userSubtitle = document.getElementById('admin-user-subtitle');
@@ -357,6 +377,9 @@
         const changeProtocolBtn = document.getElementById('admin-change-protocol-btn');
         const serverLinkArea = document.getElementById('admin-server-link');
         const copyServerLinkBtn = document.getElementById('admin-copy-server-link');
+        const usersList = document.getElementById('users-list');
+        const usersLoading = document.getElementById('users-loading');
+        const usersEmpty = document.getElementById('users-empty');
         const monthsModal = document.getElementById('months-modal');
         const monthsModalSubtitle = document.getElementById('months-modal-subtitle');
         const monthsInput = document.getElementById('months-input');
@@ -365,10 +388,94 @@
 
         let currentUserStatus = 'disabled';
         let pendingMonthAction = '';
+        let usersOffset = adminPageData.initial_count || 0;
+        let usersHasMore = !!adminPageData.has_more;
+        let usersLoadingInProgress = false;
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         function submitAction(action) {
             actionName.value = action;
             actionForm.submit();
+        }
+        function updateProtocolButtonText() {
+            const selectedOption = protocolSelect.options[protocolSelect.selectedIndex];
+            const protocolName = selectedOption ? selectedOption.textContent : '';
+            if (protocolName) {
+                changeProtocolBtn.textContent = 'Сменить протокол на ' + protocolName;
+            } else {
+                changeProtocolBtn.textContent = 'Сменить протокол';
+            }
+        }
+        function attachUserRowListener(button) {
+            button.addEventListener('click', function () {
+                openModal(button);
+            });
+        }
+        function renderUserRow(user) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'user-row';
+            button.dataset.userId = String(user.telegram_id);
+            button.dataset.userName = user.name || 'Без имени';
+            button.dataset.userStatus = user.action ? 'active' : 'disabled';
+            button.dataset.userServerId = String(user.server_id || '');
+            button.dataset.userProtocol = String(user.protocol || '');
+            button.dataset.userServerLink = user.server_link || '';
+            const statusClass = user.action ? 'status--active' : 'status--disabled';
+            const statusText = user.action ? 'Включен' : 'Отключен';
+            button.innerHTML =
+                '<div class="user-main">' +
+                    '<div>' +
+                        '<div class="user-name">' + escapeHtml(user.name || 'Без имени') + '</div>' +
+                        '<div class="user-email">' + escapeHtml(user.email || 'Email не указан') + '</div>' +
+                        '<div class="user-meta">ID: ' + escapeHtml(user.telegram_id) + ' | Подписка до: ' + escapeHtml(user.exit_date) + '</div>' +
+                    '</div>' +
+                    '<span class="status ' + statusClass + '">' + statusText + '</span>' +
+                '</div>';
+            attachUserRowListener(button);
+            usersList.appendChild(button);
+        }
+        async function loadMoreUsers() {
+            if (!usersHasMore || usersLoadingInProgress) {
+                return;
+            }
+            usersLoadingInProgress = true;
+            usersLoading.hidden = false;
+            try {
+                const params = new URLSearchParams();
+                params.set('token', adminPageData.token);
+                params.set('q', adminPageData.search_query || '');
+                params.set('offset', String(usersOffset));
+                const response = await fetch('/admin/users?' + params.toString(), {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    usersHasMore = false;
+                    return;
+                }
+                const payload = await response.json();
+                const users = Array.isArray(payload.users) ? payload.users : [];
+                users.forEach(renderUserRow);
+                usersOffset += users.length;
+                usersHasMore = !!payload.has_more;
+                if (usersEmpty && usersList.children.length > 0) {
+                    usersEmpty.hidden = true;
+                }
+            } catch (_err) {
+                usersHasMore = false;
+            } finally {
+                usersLoadingInProgress = false;
+                usersLoading.hidden = !usersHasMore;
+            }
         }
         function openMonthsModal(action) {
             pendingMonthAction = action;
@@ -402,17 +509,22 @@
                 serverSelect.value = userServerId;
             }
             if (userProtocol) {
-                protocolSelect.value = userProtocol;
+                const currentProtocol = String(userProtocol);
+                const targetOption = Array.from(protocolSelect.options).find(function (option) {
+                    return String(option.value) !== currentProtocol;
+                });
+                if (targetOption) {
+                    protocolSelect.value = targetOption.value;
+                } else {
+                    protocolSelect.value = currentProtocol;
+                }
             }
+            updateProtocolButtonText();
             serverLinkArea.value = userServerLink;
             modal.hidden = false;
         }
 
-        document.querySelectorAll('.user-row').forEach(function (button) {
-            button.addEventListener('click', function () {
-                openModal(button);
-            });
-        });
+        document.querySelectorAll('.user-row').forEach(attachUserRowListener);
 
         toggleButton.addEventListener('click', function () {
             submitAction('toggle');
@@ -431,6 +543,7 @@
             actionProtocol.value = protocolSelect.value;
             submitAction('change_protocol');
         });
+        protocolSelect.addEventListener('change', updateProtocolButtonText);
         copyServerLinkBtn.addEventListener('click', function () {
             if (!serverLinkArea.value) {
                 return;
@@ -472,6 +585,16 @@
             }
             if (event.key === 'Escape' && !monthsModal.hidden) {
                 closeMonthsModal();
+            }
+        });
+        window.addEventListener('scroll', function () {
+            if (!usersHasMore || usersLoadingInProgress) {
+                return;
+            }
+            const threshold = 360;
+            const reachedBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - threshold);
+            if (reachedBottom) {
+                loadMoreUsers();
             }
         });
     </script>

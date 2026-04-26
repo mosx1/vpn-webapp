@@ -3,7 +3,7 @@ import jwt
 from typing import Any
 from pathlib import Path
 
-from flask import Blueprint, Response, render_template, request, redirect, send_file
+from flask import Blueprint, Response, render_template, request, redirect, send_file, jsonify
 from sqlalchemy import select, or_, func
 
 from db.models import User, UserNew, ServersTable
@@ -20,6 +20,7 @@ from methods.manager_users import UserControl
 admin_panel_bp = Blueprint('admin_panel_bp', __name__, url_prefix='/admin')
 _ADMIN_EMAIL = "597730754a@gmail.com"
 _LOG_FILE_PATH = Path(__file__).resolve().parent.parent / "logs.txt"
+_USERS_PAGE_SIZE = 50
 
 
 def _read_token_from_request() -> str:
@@ -45,6 +46,47 @@ def _is_admin_by_telegram_id(telegram_id: int) -> bool:
     return users_new.email.strip().lower() == _ADMIN_EMAIL
 
 
+def _build_users_stmt(search_query: str):
+    stmt = (
+        select(User, UserNew.email)
+        .outerjoin(UserNew, UserNew.telegram_id == User.telegram_id)
+        .order_by(User.exit_date.asc())
+    )
+    if search_query:
+        pattern = f"%{search_query.lower()}%"
+        stmt = stmt.where(
+            or_(
+                func.lower(func.coalesce(User.name, '')).like(pattern),
+                func.lower(func.coalesce(UserNew.email, '')).like(pattern)
+            )
+        )
+    return stmt
+
+
+def _serialize_user_item(user_item) -> dict[str, Any]:
+    user: User = user_item[0]
+    user_email: str | None = user_item[1]
+    return {
+        "telegram_id": user.telegram_id,
+        "name": user.name or "Без имени",
+        "email": user_email or "Email не указан",
+        "exit_date": user.exit_date.strftime('%d.%m.%Y'),
+        "action": bool(user.action),
+        "server_id": user.server_id,
+        "protocol": user.protocol,
+        "server_link": user.server_link,
+    }
+
+
+def _get_users_page(search_query: str, offset: int, limit: int):
+    with UsersRepository() as users_repo:
+        stmt = _build_users_stmt(search_query)
+        rows = users_repo.session.execute(stmt.offset(offset).limit(limit + 1)).fetchall()
+    has_more = len(rows) > limit
+    page_rows = rows[:limit]
+    return page_rows, has_more
+
+
 @admin_panel_bp.route('/')
 def admin_panel() -> Response:
     raw_jwt = _read_token_from_request()
@@ -62,22 +104,11 @@ def admin_panel() -> Response:
             select(ServersTable).order_by(ServersTable.name.asc())
         ).scalars().all()
 
-    with UsersRepository() as users_repo:
-        stmt = (
-            select(User, UserNew.email)
-            .outerjoin(UserNew, UserNew.telegram_id == User.telegram_id)
-            .order_by(User.exit_date.asc())
-        )
-        if search_query:
-            pattern = f"%{search_query.lower()}%"
-            stmt = stmt.where(
-                or_(
-                    func.lower(func.coalesce(User.name, '')).like(pattern),
-                    func.lower(func.coalesce(UserNew.email, '')).like(pattern)
-                )
-            )
-        result = users_repo.session.execute(stmt.limit(1000))
-        users_data = result.fetchall()
+    users_data, has_more = _get_users_page(
+        search_query=search_query,
+        offset=0,
+        limit=_USERS_PAGE_SIZE
+    )
 
     return Response(
         render_template(
@@ -89,8 +120,41 @@ def admin_panel() -> Response:
             protocol_options=[
                 (Protocols.xray.value, "Xray"),
                 (Protocols.amneziawg.value, "AmneziaWG")
-            ]
+            ],
+            users_has_more=has_more,
+            users_page_size=_USERS_PAGE_SIZE
         )
+    )
+
+
+@admin_panel_bp.route('/users')
+def admin_users_page() -> Response:
+    raw_jwt = _read_token_from_request()
+    if not raw_jwt:
+        return Response("Token is required", status=400)
+
+    data_from_jwt = _decode_token(raw_jwt)
+    if not _is_admin_by_telegram_id(data_from_jwt['telegram_id']):
+        return Response("Forbidden", status=403)
+
+    search_query = request.args.get('q', '').strip()
+    offset_raw = request.args.get('offset', '0').strip()
+    try:
+        offset = max(0, int(offset_raw))
+    except ValueError:
+        return Response("Invalid offset", status=400)
+
+    users_data, has_more = _get_users_page(
+        search_query=search_query,
+        offset=offset,
+        limit=_USERS_PAGE_SIZE
+    )
+
+    return jsonify(
+        {
+            "users": [_serialize_user_item(item) for item in users_data],
+            "has_more": has_more
+        }
     )
 
 

@@ -53,37 +53,41 @@ class UserControl:
         self.protocol_methods = UserControlFactory.get_methods_for_protocol(self.user)
 
     def delete(self) -> None:
+        current_user_id = int(self.user.telegram_id)
+        current_server_id = int(self.user.server_id)
         with UsersRepository() as users_repo:
-            users_repo.update(self.user.telegram_id, {"action": False})
+            users_repo.update(current_user_id, {"action": False})
             users_repo.session.commit()
-        self.protocol_methods.delete(set([self.user.telegram_id]), self.user.server_id)
-        self.__init__(self.user.telegram_id)
+        self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        self.__init__(current_user_id)
     
     def add(self, server_id: int) -> None:
-
-        link = self.protocol_methods.add(self.user.telegram_id, server_id)
+        current_user_id = int(self.user.telegram_id)
+        link = self.protocol_methods.add(current_user_id, server_id)
         with UsersRepository() as users_repo:
             users_repo.update(
-                self.user.telegram_id, 
+                current_user_id,
                 {
                     "server_link": link,
                     "action": True
                 }
             )
             users_repo.session.commit()
-        self.__init__(self.user.telegram_id)
+        self.__init__(current_user_id)
     
     def update_protocol(self, protocol: Protocols) -> None:
-        self.protocol_methods.delete(set([self.user.telegram_id]), self.user.server_id)
+        current_user_id = int(self.user.telegram_id)
+        current_server_id = int(self.user.server_id)
+        self.protocol_methods.delete(set([current_user_id]), current_server_id)
         with UsersRepository() as user_repo:
             user_repo.update(
-                self.user.telegram_id,
+                current_user_id,
                 {
                     "protocol": protocol.value
                 }
             )
             user_repo.session.commit()
-            user: User = user_repo.get_by_id(self.user.telegram_id)
+            user: User = user_repo.get_by_id(current_user_id)
             self.protocol_methods = UserControlFactory.get_methods_for_protocol(user)
             link = self.protocol_methods.add(user.telegram_id, user.server_id)
 
@@ -94,19 +98,21 @@ class UserControl:
                 }
             )
             user_repo.session.commit()
-        self.__init__(user.telegram_id)
+        self.__init__(current_user_id)
 
     def update_server(self, server_id: int) -> None:
-        self.protocol_methods.delete(set([self.user.telegram_id]), self.user.server_id)
+        current_user_id = int(self.user.telegram_id)
+        current_server_id = int(self.user.server_id)
+        self.protocol_methods.delete(set([current_user_id]), current_server_id)
         with UsersRepository() as users_repo:
-            users_repo.update(self.user.telegram_id, {"server_id": server_id})
+            users_repo.update(current_user_id, {"server_id": server_id})
             users_repo.session.commit()
-            user: User = users_repo.get_by_id(self.user.telegram_id)
-        self.protocol_methods = UserControlFactory.get_methods_for_protocol(user)
-        link = self.protocol_methods.add(user.telegram_id, server_id)
-        users_repo.update(user.telegram_id, {"server_link": link})
-        users_repo.session.commit()
-        self.__init__(user.telegram_id)
+            user: User = users_repo.get_by_id(current_user_id)
+            self.protocol_methods = UserControlFactory.get_methods_for_protocol(user)
+            link = self.protocol_methods.add(user.telegram_id, server_id)
+            users_repo.update(user.telegram_id, {"server_link": link})
+            users_repo.session.commit()
+        self.__init__(current_user_id)
     
     @staticmethod
     def create(email: str) -> None:
