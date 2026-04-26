@@ -1,8 +1,9 @@
 import jwt
 
 from typing import Any
+from pathlib import Path
 
-from flask import Blueprint, Response, render_template, request, redirect
+from flask import Blueprint, Response, render_template, request, redirect, send_file
 from sqlalchemy import select, or_, func
 
 from db.models import User, UserNew, ServersTable
@@ -18,6 +19,7 @@ from methods.manager_users import UserControl
 
 admin_panel_bp = Blueprint('admin_panel_bp', __name__, url_prefix='/admin')
 _ADMIN_EMAIL = "597730754a@gmail.com"
+_LOG_FILE_PATH = Path(__file__).resolve().parent.parent / "logs.txt"
 
 
 def _read_token_from_request() -> str:
@@ -105,6 +107,7 @@ def admin_user_action() -> Response:
     action = request.form.get('action', '').strip()
     user_id_raw = request.form.get('user_id', '').strip()
     redirect_query = request.form.get('q', '').strip()
+    month_count_raw = request.form.get('month_count', '').strip()
 
     if action not in {"toggle", "extend", "reduce", "change_server", "change_protocol"}:
         return Response("Invalid action", status=400)
@@ -128,9 +131,25 @@ def admin_user_action() -> Response:
         else:
             user_control.add(target_user.server_id)
     elif action == "extend":
-        user_control.prolongation(30)
+        if not month_count_raw:
+            return Response("month_count is required", status=400)
+        try:
+            month_count = int(month_count_raw)
+        except ValueError:
+            return Response("Invalid month_count", status=400)
+        if month_count < 1:
+            return Response("month_count must be greater than 0", status=400)
+        user_control.prolongation(month_count * 30)
     elif action == "reduce":
-        user_control.reduce_subscription(30)
+        if not month_count_raw:
+            return Response("month_count is required", status=400)
+        try:
+            month_count = int(month_count_raw)
+        except ValueError:
+            return Response("Invalid month_count", status=400)
+        if month_count < 1:
+            return Response("month_count must be greater than 0", status=400)
+        user_control.reduce_subscription(month_count * 30)
     elif action == "change_server":
         server_id_raw = request.form.get('server_id', '').strip()
         if not server_id_raw:
@@ -163,3 +182,24 @@ def admin_user_action() -> Response:
     if redirect_query:
         redirect_url = f"{redirect_url}&q={redirect_query}"
     return redirect(redirect_url)
+
+
+@admin_panel_bp.route('/logs/download')
+def download_logs() -> Response:
+    raw_jwt = _read_token_from_request()
+    if not raw_jwt:
+        return Response("Token is required", status=400)
+
+    data_from_jwt = _decode_token(raw_jwt)
+    if not _is_admin_by_telegram_id(data_from_jwt['telegram_id']):
+        return Response("Forbidden", status=403)
+
+    if not _LOG_FILE_PATH.exists():
+        return Response("Log file not found", status=404)
+
+    return send_file(
+        _LOG_FILE_PATH,
+        as_attachment=True,
+        download_name="logs.txt",
+        mimetype="text/plain"
+    )

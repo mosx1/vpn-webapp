@@ -27,7 +27,7 @@ def check_payments() -> None:
     config.read('config.ini')
 
     while True:
-        
+
         with SaleInvoicesInProgressRepository() as siip_repo:
 
             invoices = siip_repo.get_sale_invoice_by_label()
@@ -70,6 +70,7 @@ def success_payment(invoice: SaleInvoicesInProgress):
                 invoice.server_id
             )
         )
+    
         with UsersNewRepository() as users_new_repo:
             users_new: UserNew | None = users_new_repo.get_by_id(user.telegram_id)
             if users_new:
