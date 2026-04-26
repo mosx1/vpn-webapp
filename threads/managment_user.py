@@ -1,18 +1,19 @@
 import time
 
-from connect import logging, engine
-
-from sqlalchemy.orm import Session
+from connect import logging
 from sqlalchemy import text
 
 from methods.manager_users import UserControl
+
+from db.connect import SQLASession
 
 
 def check_subscription():
     logging.info('thread check_subscription started')
     while True:
         try:
-            with Session(engine) as session:
+            db_connect = SQLASession()
+            with db_connect.get_session() as session:
                 data = session.execute(
                     text(
                         "SELECT server_id, array_agg(DISTINCT telegram_id) as telegram_ids" +

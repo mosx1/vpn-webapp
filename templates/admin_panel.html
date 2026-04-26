@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <title>Панель администратора</title>
+    <style>
+        :root {
+            --font: "DM Sans", system-ui, -apple-system, sans-serif;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --border: rgb(148 163 184 / 0.22);
+            --primary: #dc2626;
+            --primary-dark: #b91c1c;
+            --primary-glow: rgb(220 38 38 / 0.35);
+            --radius: 16px;
+            --radius-sm: 12px;
+            --shadow-lg: 0 4px 6px -1px rgb(15 23 42 / 0.06),
+                0 16px 32px -8px rgb(15 23 42 / 0.12);
+            --shadow-inner: inset 0 1px 0 rgb(255 255 255 / 0.6);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: var(--font);
+            background: fixed radial-gradient(1200px 800px at 80% -10%, rgb(239 246 255 / 0.9), transparent),
+                radial-gradient(900px 600px at -10% 40%, rgb(254 226 226 / 0.45), transparent),
+                linear-gradient(180deg, #f1f5f9 0%, #e8eef5 100%);
+            margin: 0;
+            min-height: 100dvh;
+            padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                max(24px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+            color: var(--text);
+            line-height: 1.6;
+            letter-spacing: -0.01em;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 16px auto;
+            background: var(--surface);
+            border-radius: clamp(14px, 3vw, 22px);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgb(255 255 255 / 0.8);
+            padding: clamp(18px, 4vw, 32px);
+            position: relative;
+            overflow: hidden;
+        }
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), #f97316, var(--primary-dark));
+        }
+        h1 {
+            margin: 0 0 14px;
+            font-size: clamp(1.25rem, 3.8vw, 1.8rem);
+        }
+        .panel-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .search-form {
+            display: flex;
+            flex: 1 1 360px;
+            gap: 8px;
+        }
+        .search-form input {
+            flex: 1;
+            min-width: 200px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 10px 14px;
+            font: inherit;
+            background: var(--surface-soft);
+        }
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            font: inherit;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            background: linear-gradient(145deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+        .button--muted {
+            background: var(--surface-soft);
+            color: var(--text);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-inner);
+        }
+        .users-list {
+            display: grid;
+            gap: 10px;
+        }
+        .user-row {
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            background: var(--surface-soft);
+            cursor: pointer;
+        }
+        .user-main {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .user-name {
+            font-weight: 600;
+        }
+        .user-email,
+        .user-meta {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+        .status {
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .status--active {
+            color: #166534;
+            background: rgb(220 252 231);
+        }
+        .status--disabled {
+            color: #9a3412;
+            background: rgb(255 237 213);
+        }
+        .empty {
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            background: var(--surface-soft);
+        }
+        .modal[hidden] { display: none; }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgb(15 23 42 / 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 10000;
+        }
+        .modal__dialog {
+            width: min(100%, 420px);
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 18px;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal__title {
+            margin: 0 0 6px;
+            font-size: 1.15rem;
+        }
+        .modal__subtitle {
+            margin: 0 0 14px;
+            color: var(--text-muted);
+            font-size: 0.93rem;
+        }
+        .modal__actions {
+            display: grid;
+            gap: 10px;
+        }
+        .modal__group {
+            margin-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+        .modal__group label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .modal__group select,
+        .modal__group textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font: inherit;
+            background: var(--surface-soft);
+            color: var(--text);
+        }
+        .modal__group textarea {
+            min-height: 92px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Панель администратора</h1>
+        <div class="panel-tools">
+            <form method="get" action="/admin" class="search-form">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="search" name="q" value="{{ search_query }}" placeholder="Поиск по имени или email">
+                <button type="submit" class="button">Найти</button>
+            </form>
+            <a class="button button--muted" href="/sub/home?token={{ token }}">Назад</a>
+        </div>
+
+        {% if users_data %}
+            <div class="users-list">
+                {% for user_item in users_data %}
+                    {% set user = user_item[0] %}
+                    {% set user_email = user_item[1] %}
+                    <button
+                        type="button"
+                        class="user-row"
+                        data-user-id="{{ user.telegram_id }}"
+                        data-user-name="{{ user.name or ('ID ' ~ user.telegram_id) }}"
+                        data-user-status="{{ 'active' if user.action else 'disabled' }}"
+                        data-user-server-id="{{ user.server_id }}"
+                        data-user-protocol="{{ user.protocol }}"
+                        data-user-server-link="{{ user.server_link }}"
+                    >
+                        <div class="user-main">
+                            <div>
+                                <div class="user-name">{{ user.name or 'Без имени' }}</div>
+                                <div class="user-email">{{ user_email or 'Email не указан' }}</div>
+                                <div class="user-meta">ID: {{ user.telegram_id }} | Подписка до: {{ user.exit_date.strftime('%d.%m.%Y') }}</div>
+                            </div>
+                            <span class="status {{ 'status--active' if user.action else 'status--disabled' }}">
+                                {{ 'Включен' if user.action else 'Отключен' }}
+                            </span>
+                        </div>
+                    </button>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty">Пользователи не найдены.</div>
+        {% endif %}
+    </div>
+
+    <div class="modal" id="admin-user-modal" hidden>
+        <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="admin-user-title">
+            <h2 class="modal__title" id="admin-user-title">Пользователь</h2>
+            <p class="modal__subtitle" id="admin-user-subtitle">Выберите действие</p>
+            <form method="post" action="/admin/user-action" id="admin-action-form">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="hidden" name="q" value="{{ search_query }}">
+                <input type="hidden" name="user_id" id="admin-action-user-id" value="">
+                <input type="hidden" name="action" id="admin-action-name" value="">
+                <input type="hidden" name="server_id" id="admin-action-server-id" value="">
+                <input type="hidden" name="protocol" id="admin-action-protocol" value="">
+                <div class="modal__actions">
+                    <button type="button" class="button" id="admin-toggle-btn"></button>
+                    <button type="button" class="button" data-action="extend">Продлить подписку на 1 месяц</button>
+                    <button type="button" class="button button--muted" data-action="reduce">Уменьшить подписку на 1 месяц</button>
+                    <div class="modal__group">
+                        <label for="admin-server-select">Сменить сервер</label>
+                        <select id="admin-server-select">
+                            {% for server in servers %}
+                                <option value="{{ server.id }}">{{ server.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="button button--muted" id="admin-change-server-btn">Применить сервер</button>
+                    </div>
+                    <div class="modal__group">
+                        <label for="admin-protocol-select">Сменить протокол</label>
+                        <select id="admin-protocol-select">
+                            {% for protocol_item in protocol_options %}
+                                <option value="{{ protocol_item[0] }}">{{ protocol_item[1] }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="button button--muted" id="admin-change-protocol-btn">Применить протокол</button>
+                    </div>
+                    <div class="modal__group">
+                        <label for="admin-server-link">server_link пользователя</label>
+                        <textarea id="admin-server-link" readonly></textarea>
+                        <button type="button" class="button button--muted" id="admin-copy-server-link">Скопировать server_link</button>
+                    </div>
+                    <button type="button" class="button button--muted" id="admin-close-modal">Закрыть</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('admin-user-modal');
+        const userTitle = document.getElementById('admin-user-title');
+        const userSubtitle = document.getElementById('admin-user-subtitle');
+        const actionForm = document.getElementById('admin-action-form');
+        const actionUserId = document.getElementById('admin-action-user-id');
+        const actionName = document.getElementById('admin-action-name');
+        const actionServerId = document.getElementById('admin-action-server-id');
+        const actionProtocol = document.getElementById('admin-action-protocol');
+        const closeModalBtn = document.getElementById('admin-close-modal');
+        const toggleButton = document.getElementById('admin-toggle-btn');
+        const serverSelect = document.getElementById('admin-server-select');
+        const protocolSelect = document.getElementById('admin-protocol-select');
+        const changeServerBtn = document.getElementById('admin-change-server-btn');
+        const changeProtocolBtn = document.getElementById('admin-change-protocol-btn');
+        const serverLinkArea = document.getElementById('admin-server-link');
+        const copyServerLinkBtn = document.getElementById('admin-copy-server-link');
+
+        let currentUserStatus = 'disabled';
+
+        function submitAction(action) {
+            actionName.value = action;
+            actionForm.submit();
+        }
+
+        function openModal(button) {
+            const userId = button.dataset.userId;
+            const userName = button.dataset.userName || 'Пользователь';
+            currentUserStatus = button.dataset.userStatus || 'disabled';
+            const userServerId = button.dataset.userServerId || '';
+            const userProtocol = button.dataset.userProtocol || '';
+            const userServerLink = button.dataset.userServerLink || '';
+            actionUserId.value = userId;
+            userTitle.textContent = userName;
+            userSubtitle.textContent = `ID: ${userId}`;
+            toggleButton.textContent = currentUserStatus === 'active' ? 'Отключить пользователя' : 'Включить пользователя';
+            if (userServerId) {
+                serverSelect.value = userServerId;
+            }
+            if (userProtocol) {
+                protocolSelect.value = userProtocol;
+            }
+            serverLinkArea.value = userServerLink;
+            modal.hidden = false;
+        }
+
+        document.querySelectorAll('.user-row').forEach(function (button) {
+            button.addEventListener('click', function () {
+                openModal(button);
+            });
+        });
+
+        toggleButton.addEventListener('click', function () {
+            submitAction('toggle');
+        });
+        document.querySelectorAll('[data-action]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                submitAction(button.dataset.action);
+            });
+        });
+        changeServerBtn.addEventListener('click', function () {
+            actionServerId.value = serverSelect.value;
+            submitAction('change_server');
+        });
+        changeProtocolBtn.addEventListener('click', function () {
+            actionProtocol.value = protocolSelect.value;
+            submitAction('change_protocol');
+        });
+        copyServerLinkBtn.addEventListener('click', function () {
+            if (!serverLinkArea.value) {
+                return;
+            }
+            navigator.clipboard.writeText(serverLinkArea.value);
+        });
+        closeModalBtn.addEventListener('click', function () {
+            modal.hidden = true;
+        });
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                modal.hidden = true;
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                modal.hidden = true;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -2,17 +2,17 @@ from yoomoney import History, Quickpay, Client
 
 from config_loader import read_config
 
+from connect import logging
+
 
 def getInfoLastPayment(label: str) -> dict:
     """
         Получает информацию о последнем платеже по идентификатору платежа
     """
     conf = read_config()
-
     client = Client(conf['YooMoney'].get('token'))
-
     history: History = client.operation_history(label=label)
-
+    
     for operation in history.operations:
 
         return {

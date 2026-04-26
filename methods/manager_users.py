@@ -149,6 +149,16 @@ class UserControl:
             )
             users_repo.session.commit()
 
+    def reduce_subscription(self, day: int) -> None:
+        with UsersRepository() as users_repo:
+            users_repo.update(
+                self.user.telegram_id,
+                {
+                    "exit_date": text(f"exit_date - interval '{day} days'")
+                }
+            )
+            users_repo.session.commit()
+
 
 def get_current_user() -> User | None:
 

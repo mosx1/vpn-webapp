@@ -458,6 +458,9 @@
                 <a href="{{ pay_link }}" class="button" data-pay-trigger="prolong">Продлить</a>
                 <a href="{{ pay_link }}" class="button" data-pay-trigger="gift">Подарить</a>
             </div>
+            {% if is_admin %}
+                <a href="/admin?token={{ token }}" class="button">Панель администратора</a>
+            {% endif %}
         </div>
         {% if user.action %}
         <div class="section step-panel">
