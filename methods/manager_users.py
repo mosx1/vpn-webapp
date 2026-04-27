@@ -165,6 +165,18 @@ class UserControl:
             )
             users_repo.session.commit()
 
+    def add_referal(user_id: int, referal: int) -> None:
+        with UsersRepository() as users_repo:
+            users_repo.update(
+                user_id,
+                {
+                    "invited": referal
+                }
+            )
+            user_control = UserControl(referal)
+            user_control.prolongation(30)
+            users_repo.session.commit()
+
 
 def get_current_user() -> User | None:
 

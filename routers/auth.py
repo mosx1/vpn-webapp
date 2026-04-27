@@ -11,6 +11,7 @@ from methods.manager_users import UserControl
 
 from db.repository.users_new import UsersNewRepository
 from db.repository.security import SecurityRepository
+
 from db.models import UserNew
 
 from connect import config
@@ -136,8 +137,9 @@ def captcha_image() -> Response:
 @auth.route('/confirm_email')
 def confirm_email() -> Response:
     email = request.args.get('email', '').strip()
-    captcha_code = request.args.get('captcha_code', '').strip()
-    captcha_nonce = request.args.get('captcha_nonce', '').strip()
+    captcha_code: str = request.args.get('captcha_code', '').strip()
+    captcha_nonce: str = request.args.get('captcha_nonce', '').strip()
+    referal: str = request.args.get('referal')
 
     if not email:
         new_captcha_nonce, _ = _create_captcha()
@@ -169,6 +171,17 @@ def confirm_email() -> Response:
 
     if not user_id:
         user_id = UserControl.create(email)
+        if referal:
+            UserControl.add_referal(user_id, referal)
+            with UsersNewRepository() as users_new_repo:
+                user: UserNew | None = users_new_repo.get_by_id(int(referal))
+            if user:
+                send_yandex_email(
+                    user.email,
+                    "Продление по реферальной ссылке",
+                    "Кто-то перешел по вашей реферальной ссылке. Вы получили дополнительно 30 дней подписки."
+                )
+
 
     with SecurityRepository() as security_rep:
         token: str = jwt.encode(

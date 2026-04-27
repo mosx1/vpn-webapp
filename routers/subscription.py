@@ -66,7 +66,7 @@ def _() -> Response:
             "subscription-userinfo": f"expire={user.exit_date.timestamp()};",
             "support-url": "https://t.me/open_vpn_sale_bot",
             "profile-update-interval": 1,
-            "profile-web-page-url": "https://t.me/open_vpn_sale_bot"
+            "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}"
         }
         subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
         if user.protocol == Protocols.amneziawg.value:
@@ -76,11 +76,6 @@ def _() -> Response:
             subscription_data,
             headers=headers
         )
-    
-
-# @sub.route('/get_link')
-# def get_link() -> Response:
-#     return Response(get_link_subscription(request.args.get('id')))
 
 
 @sub.route('/mobile')
@@ -149,6 +144,7 @@ def home_page() -> Response:
     link: str = get_link_subscription(data_from_jwt['telegram_id'])
     protocol_name = _PROTOCOL_DISPLAY.get(user.protocol, str(user.protocol))
     subscription_exit: bool = user.exit_date > datetime.datetime.now()
+    referal_code: str = f'https://{config["BaseConfig"].get("host")}?referal={user.telegram_id}'
     
     return Response(
         render_template(
@@ -164,7 +160,8 @@ def home_page() -> Response:
             protocol_name=protocol_name,
             subscription_exit=subscription_exit,
             email=email,
-            is_admin=is_admin
+            is_admin=is_admin,
+            referal_code=referal_code
         )
     )
 
