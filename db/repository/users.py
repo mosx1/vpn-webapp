@@ -4,7 +4,7 @@ from db.models import User, ServersTable, UserNew
 
 from typing import Iterable, Any
 
-from sqlalchemy import select, update, insert, text
+from sqlalchemy import select, update, insert, text, func
 
 from connect import config
 
@@ -88,3 +88,80 @@ class UsersRepository(BaseRepository[User]):
         )
         self.session.execute(stmt)
         return
+
+    def get_active_users_with_email_expiring_in(
+        self,
+        interval_value: str,
+        window_minutes: int = 1
+    ) -> Iterable:
+        """
+            Возвращает активных пользователей с email,
+            у которых подписка заканчивается в заданном окне.
+        """
+        interval_expr = text(f"interval '{interval_value}'")
+        window_expr = text(f"interval '{window_minutes} minutes'")
+
+        query = (
+            select(
+                User.telegram_id,
+                UserNew.email
+            )
+            .join(
+                UserNew,
+                UserNew.telegram_id == User.telegram_id
+            )
+            .where(
+                User.action,
+                UserNew.email.is_not(None),
+                func.btrim(UserNew.email) != '',
+                User.exit_date >= func.now() + interval_expr,
+                User.exit_date < func.now() + interval_expr + window_expr
+            )
+        )
+        result = self.session.execute(query)
+        return result.fetchall()
+
+    def get_active_users_with_email_expiring_now(self, window_minutes: int = 1) -> Iterable:
+        """
+            Возвращает активных пользователей с email,
+            у которых подписка заканчивается прямо сейчас.
+        """
+        window_expr = text(f"interval '{window_minutes} minutes'")
+        query = (
+            select(
+                User.telegram_id,
+                UserNew.email
+            )
+            .join(
+                UserNew,
+                UserNew.telegram_id == User.telegram_id
+            )
+            .where(
+                User.action,
+                UserNew.email.is_not(None),
+                func.btrim(UserNew.email) != '',
+                User.exit_date >= func.now(),
+                User.exit_date < func.now() + window_expr
+            )
+        )
+        result = self.session.execute(query)
+        return result.fetchall()
+
+    def get_expired_active_users_grouped_by_server(self) -> Iterable:
+        """
+            Возвращает просроченных активных пользователей,
+            сгруппированных по серверу.
+        """
+        query = (
+            select(
+                User.server_id,
+                func.array_agg(func.distinct(User.telegram_id)).label('telegram_ids')
+            )
+            .where(
+                User.action,
+                User.exit_date < func.now()
+            )
+            .group_by(User.server_id)
+        )
+        result = self.session.execute(query)
+        return result.fetchall()
