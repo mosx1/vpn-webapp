@@ -4,6 +4,7 @@ from routers.vpn_app import vpn_app_bp
 from routers.subscription import sub
 from routers.auth import auth
 from routers.admin_panel import admin_panel_bp
+from routers.payment import payment_bp
 
 from flask import Flask
 from flask import send_from_directory, redirect
@@ -16,6 +17,7 @@ app.register_blueprint(vpn_app_bp)
 app.register_blueprint(sub)
 app.register_blueprint(auth)
 app.register_blueprint(admin_panel_bp)
+app.register_blueprint(payment_bp)
 
 @app.route('/')
 def index():
