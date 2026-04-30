@@ -1,6 +1,6 @@
 from threading import Thread
 from threads.managment_user import check_subscription
-from threads.payment import check_payments
+# from threads.payment import check_payments
 
 
 threads = [
