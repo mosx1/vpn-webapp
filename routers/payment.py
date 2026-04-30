@@ -3,8 +3,7 @@ from flask import Blueprint, request, jsonify, Response
 from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
 from db.models import SaleInvoicesInProgress
 
-from connect import logging
-
+from methods.payment.common import success_payment, success_payment_gift
 
 payment_bp = Blueprint('payment_bp', __name__, url_prefix='/payment')
 
@@ -17,5 +16,9 @@ def payment_info() -> Response:
 
     if not invoice:
         return jsonify({"error": "label is required"}), 400
-    logging.info(f"Найден платеж: {invoice.id}")
+
+    if invoice.is_gift:
+        success_payment_gift(invoice)
+    else:
+        success_payment(invoice)
     return jsonify("success"), 200
