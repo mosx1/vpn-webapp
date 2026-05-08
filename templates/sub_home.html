@@ -680,6 +680,15 @@
     </div>
     <script>
         (function () {
+            function showPageLoader() {
+                var loader = document.getElementById('loader');
+                if (!loader) return;
+                loader.classList.remove('hidden');
+                loader.style.visibility = 'visible';
+                loader.setAttribute('aria-busy', 'true');
+                document.body.classList.add('loading');
+            }
+
             function hidePageLoader() {
                 var loader = document.getElementById('loader');
                 if (!loader) return;
@@ -687,6 +696,7 @@
                 loader.setAttribute('aria-busy', 'false');
                 document.body.classList.remove('loading');
             }
+            window.showPageLoader = showPageLoader;
             if (document.readyState === 'complete') {
                 hidePageLoader();
             } else {
@@ -886,13 +896,9 @@
         document.querySelectorAll('.reload-btn').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                const loader = document.getElementById('loader');
-                if (loader) {
-                    loader.classList.remove('hidden');
-                    loader.style.visibility = 'visible';
-                    loader.setAttribute('aria-busy', 'true');
+                if (window.showPageLoader) {
+                    window.showPageLoader();
                 }
-                document.body.classList.add('loading');
                 this.style.pointerEvents = 'none';
                 this.textContent = 'Загрузка…';
                 const href = btn.href;
@@ -900,6 +906,28 @@
                     window.location.href = href;
                 }, 50);
             });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented) return;
+            if (e.button !== 0) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            if (link.dataset.payTrigger || link.dataset.routerModalTrigger) return;
+            if (link.classList.contains('reload-btn')) return;
+            if (link.target === '_blank' || link.hasAttribute('download')) return;
+
+            const href = link.getAttribute('href') || '';
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+            const targetUrl = new URL(link.href, window.location.origin);
+            if (targetUrl.origin !== window.location.origin) return;
+
+            if (window.showPageLoader) {
+                window.showPageLoader();
+            }
         });
     </script>
 </body>

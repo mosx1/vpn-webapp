@@ -132,7 +132,7 @@ def home_page() -> Response:
             email = users_new.email
             is_admin = email.strip().lower() == config['BaseConfig'].get('admin_email')
     aw: bool = user.protocol == Protocols.amneziawg.value
-    sub_link = f"happ://add/https://kuzmos.ru/sub?token={raw_jwt}"
+    sub_link = f"incy://add/https://kuzmos.ru/sub?token={raw_jwt}"
     param_aw = ""
     if aw:
         param_aw = f"?aw={aw}"

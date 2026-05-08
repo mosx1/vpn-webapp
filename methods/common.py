@@ -21,10 +21,10 @@ def auto_select_platform_by_download_app():
             
     match device_client:
         case Devices.iphone.value | Devices.macintosh.value:
-            return redirect('https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973')
+            return redirect('https://apps.apple.com/ru/app/incy/id6756943388')
         case Devices.android.value:
-            return redirect('https://play.google.com/store/apps/details?id=com.happproxy')
+            return redirect('https://github.com/INCY-DEV/incy-platforms/releases/latest/download/Incy.apk')
         case Devices.windows.value:
-            return redirect('https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe')
+            return redirect('https://github.com/INCY-DEV/incy-platforms/releases/latest/download/incy-windows-setup.exe')
         case _:
             return 'Воспользуйтесь ручной наастройкой'
