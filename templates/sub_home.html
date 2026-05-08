@@ -693,15 +693,26 @@
                 var loader = document.getElementById('loader');
                 if (!loader) return;
                 loader.classList.add('hidden');
+                loader.style.visibility = 'hidden';
                 loader.setAttribute('aria-busy', 'false');
                 document.body.classList.remove('loading');
             }
             window.showPageLoader = showPageLoader;
-            if (document.readyState === 'complete') {
+            var fallbackHideTimer = window.setTimeout(hidePageLoader, 4000);
+            var onReady = function () {
+                window.clearTimeout(fallbackHideTimer);
                 hidePageLoader();
+            };
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                onReady();
             } else {
-                window.addEventListener('load', hidePageLoader);
+                document.addEventListener('DOMContentLoaded', onReady, { once: true });
+                window.addEventListener('load', onReady, { once: true });
             }
+
+            // При возврате из bfcache браузер не всегда повторно шлет load.
+            window.addEventListener('pageshow', hidePageLoader);
         })();
     </script>
     <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price, 'user_id': (user.id|string), 'protocol_is_two': (user.protocol == 2)}|tojson }}</script>

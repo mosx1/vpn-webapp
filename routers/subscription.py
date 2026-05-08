@@ -64,9 +64,10 @@ def _() -> Response:
         user: User | None = user_rep.get_by_telegram_id(payload['telegram_id'])
         headers = {
             "subscription-userinfo": f"expire={user.exit_date.timestamp()};",
-            "support-url": "https://t.me/open_vpn_sale_bot",
             "profile-update-interval": 1,
-            "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}"
+            "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}",
+            "profile-title": "Vigodniy VPN",
+            "announce": "base64:0KLQtdGB0YI="
         }
         subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
         if user.protocol == Protocols.amneziawg.value:
