@@ -237,6 +237,9 @@
         .months-modal__dialog {
             width: min(100%, 360px);
         }
+        .announce-modal__dialog {
+            width: min(100%, 640px);
+        }
     </style>
 </head>
 <body>
@@ -249,6 +252,7 @@
                 <button type="submit" class="button">Найти</button>
             </form>
             <a class="button button--muted" href="/admin/logs/download?token={{ token }}">Скачать логи</a>
+            <button type="button" class="button button--muted" id="open-announce-modal-btn">Объявление</button>
             <a class="button button--muted" href="/sub/home?token={{ token }}">Назад</a>
         </div>
 
@@ -348,6 +352,22 @@
             </div>
         </div>
     </div>
+    <div class="modal" id="announce-modal" hidden>
+        <div class="modal__dialog announce-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="announce-modal-title">
+            <h2 class="modal__title" id="announce-modal-title">Объявление</h2>
+            <form method="post" action="/admin/announce">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="hidden" name="q" value="{{ search_query }}">
+                <div class="modal__group">
+                    <textarea id="announce-text-input" name="announce_text" maxlength="2000" required>{{ announce_text }}</textarea>
+                </div>
+                <div class="modal__row" style="margin-top: 12px;">
+                    <button type="submit" class="button">Сохранить объявление</button>
+                    <button type="button" class="button button--muted" id="close-announce-modal-btn">Закрыть</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script type="application/json" id="admin-page-data">{{ {
         'token': token,
@@ -385,6 +405,10 @@
         const monthsInput = document.getElementById('months-input');
         const monthsConfirmBtn = document.getElementById('months-confirm-btn');
         const monthsCancelBtn = document.getElementById('months-cancel-btn');
+        const announceModal = document.getElementById('announce-modal');
+        const announceInput = document.getElementById('announce-text-input');
+        const openAnnounceModalBtn = document.getElementById('open-announce-modal-btn');
+        const closeAnnounceModalBtn = document.getElementById('close-announce-modal-btn');
 
         let currentUserStatus = 'disabled';
         let pendingMonthAction = '';
@@ -493,6 +517,17 @@
             monthsModal.hidden = true;
             pendingMonthAction = '';
         }
+        function openAnnounceModal() {
+            announceModal.hidden = false;
+            setTimeout(function () {
+                announceInput.focus();
+                announceInput.selectionStart = announceInput.value.length;
+                announceInput.selectionEnd = announceInput.value.length;
+            }, 0);
+        }
+        function closeAnnounceModal() {
+            announceModal.hidden = true;
+        }
 
         function openModal(button) {
             const userId = button.dataset.userId;
@@ -556,6 +591,12 @@
         monthsCancelBtn.addEventListener('click', function () {
             closeMonthsModal();
         });
+        openAnnounceModalBtn.addEventListener('click', function () {
+            openAnnounceModal();
+        });
+        closeAnnounceModalBtn.addEventListener('click', function () {
+            closeAnnounceModal();
+        });
         monthsConfirmBtn.addEventListener('click', function () {
             const monthCount = parseInt(monthsInput.value, 10);
             if (!pendingMonthAction) {
@@ -579,12 +620,20 @@
                 closeMonthsModal();
             }
         });
+        announceModal.addEventListener('click', function (event) {
+            if (event.target === announceModal) {
+                closeAnnounceModal();
+            }
+        });
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && !modal.hidden) {
                 modal.hidden = true;
             }
             if (event.key === 'Escape' && !monthsModal.hidden) {
                 closeMonthsModal();
+            }
+            if (event.key === 'Escape' && !announceModal.hidden) {
+                closeAnnounceModal();
             }
         });
         window.addEventListener('scroll', function () {

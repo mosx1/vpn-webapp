@@ -11,3 +11,7 @@ class UserControlBase(ABC):
     def delete(self, user_ids: set, server_id: int) -> None: ...
     @abstractmethod
     def add(self, user_id: int, server_id: int) -> str | None: ...
+
+
+class AppSettingsBase(ABC):
+    key: str

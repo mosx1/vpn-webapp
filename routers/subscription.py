@@ -22,7 +22,7 @@ from config_loader import read_config
 
 from methods.payment.yoomoneyMethods import get_link_payment
 from methods.manager_users import UserControl, get_current_user, get_link_subscription
-
+from methods.announce import Annonce
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
 
@@ -67,7 +67,7 @@ def _() -> Response:
             "profile-update-interval": 1,
             "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}",
             "profile-title": "base64:0JLRi9Cz0L7QtNC90YvQuSBWUE4=",
-            "announce": "base64:0J/QviDQstC+0L/RgNC+0YHQsNC8INC4INC/0YDQvtCx0LvQtdC80LDQvCDQv9C40YjQuNGC0LUg0L3QsCA1OTc3MzA3NTRhQGdtYWlsLmNvbQrQm9C40YfQvdGL0Lkg0LrQsNCx0LjQvdC10YIg0L/QtdGA0LXQtdGF0LDQuyDQvdCwINGB0LDQudGCIGt1em1vcy5ydS4K0JLRgdC1INC+0LHRitGP0LLQu9C10L3QuNGPINGC0LXQv9C10YDRjCDQsdGD0LTRg9GCINC+0YLQvtCx0YDQsNC20LDRgtGM0YHRjyDRgtC+0LvRjNC60L4g0LfQtNC10YHRjC4="
+            "announce": Annonce.get_header_value()
         }
         subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
         if user.protocol == Protocols.amneziawg.value:

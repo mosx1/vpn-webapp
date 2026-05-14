@@ -14,8 +14,9 @@ from db.repository.security import SecurityRepository
 from db.enums import Protocols
 
 from config_loader import read_config
-from methods.manager_users import UserControl
 
+from methods.manager_users import UserControl
+from methods.announce import Annonce
 
 admin_panel_bp = Blueprint('admin_panel_bp', __name__, url_prefix='/admin')
 _ADMIN_EMAIL = "597730754a@gmail.com"
@@ -50,7 +51,7 @@ def _build_users_stmt(search_query: str):
     stmt = (
         select(User, UserNew.email)
         .outerjoin(UserNew, UserNew.telegram_id == User.telegram_id)
-        .order_by(User.exit_date.asc())
+        .order_by(User.exit_date.desc())
     )
     if search_query:
         pattern = f"%{search_query.lower()}%"
@@ -109,6 +110,7 @@ def admin_panel() -> Response:
         offset=0,
         limit=_USERS_PAGE_SIZE
     )
+    announce_text = Annonce.get_text()
 
     return Response(
         render_template(
@@ -121,6 +123,7 @@ def admin_panel() -> Response:
                 (Protocols.xray.value, "Xray"),
                 (Protocols.amneziawg.value, "AmneziaWG")
             ],
+            announce_text=announce_text,
             users_has_more=has_more,
             users_page_size=_USERS_PAGE_SIZE
         )
@@ -242,6 +245,29 @@ def admin_user_action() -> Response:
             return Response("Protocol not found", status=404)
         user_control.update_protocol(selected_protocol)
 
+    redirect_url = f"/admin?token={raw_jwt}"
+    if redirect_query:
+        redirect_url = f"{redirect_url}&q={redirect_query}"
+    return redirect(redirect_url)
+
+
+@admin_panel_bp.route('/announce', methods=['POST'])
+def admin_announce() -> Response:
+    raw_jwt = _read_token_from_request()
+    if not raw_jwt:
+        return Response("Token is required", status=400)
+
+    data_from_jwt = _decode_token(raw_jwt)
+    if not _is_admin_by_telegram_id(data_from_jwt['telegram_id']):
+        return Response("Forbidden", status=403)
+
+    announce_text = request.form.get('announce_text', '').strip()
+    if not announce_text:
+        return Response("announce_text is required", status=400)
+
+    Annonce.set_text(announce_text)
+
+    redirect_query = request.form.get('q', '').strip()
     redirect_url = f"/admin?token={raw_jwt}"
     if redirect_query:
         redirect_url = f"{redirect_url}&q={redirect_query}"

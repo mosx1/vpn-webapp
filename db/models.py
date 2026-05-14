@@ -101,5 +101,20 @@ class MTProxyConfigs(Base):
     __table_agrs__ = (
         ForeignKeyConstraint(['server_id'], ['servers.id'])
     )
-    
+
+
+class AppSetting(Base):
+
+    __tablename__: str = 'app_settings'
+
+    key: Column = Column(TEXT, primary_key=True)
+    value: Column = Column(TEXT, nullable=True)
+    updated_at: Column = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+
 Base.metadata.create_all(engine)
