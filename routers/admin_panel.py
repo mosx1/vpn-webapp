@@ -58,7 +58,8 @@ def _build_users_stmt(search_query: str):
         stmt = stmt.where(
             or_(
                 func.lower(func.coalesce(User.name, '')).like(pattern),
-                func.lower(func.coalesce(UserNew.email, '')).like(pattern)
+                func.lower(func.coalesce(UserNew.email, '')).like(pattern),
+                func.lower(func.coalesce(User.telegram_id, '')).like(pattern)
             )
         )
     return stmt
