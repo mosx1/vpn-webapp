@@ -4,7 +4,7 @@ from typing import Any
 from pathlib import Path
 
 from flask import Blueprint, Response, render_template, request, redirect, send_file, jsonify
-from sqlalchemy import select, or_, func
+from sqlalchemy import String, select, or_, func, cast
 
 from db.models import User, UserNew, ServersTable
 from db.repository.users import UsersRepository
@@ -59,7 +59,7 @@ def _build_users_stmt(search_query: str):
             or_(
                 func.lower(func.coalesce(User.name, '')).like(pattern),
                 func.lower(func.coalesce(UserNew.email, '')).like(pattern),
-                func.lower(func.coalesce(User.telegram_id, '')).like(pattern)
+                cast(User.telegram_id, String).like(f"%{search_query}%")
             )
         )
     return stmt
