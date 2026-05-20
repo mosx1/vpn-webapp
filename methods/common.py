@@ -23,7 +23,7 @@ def auto_select_platform_by_download_app():
         case Devices.iphone.value | Devices.macintosh.value:
             return redirect('https://apps.apple.com/ru/app/incy/id6756943388')
         case Devices.android.value:
-            return redirect('https://github.com/INCY-DEV/incy-platforms/releases/latest/download/Incy.apk')
+            return redirect('https://play.google.com/store/apps/details?id=llc.itdev.incy')
         case Devices.windows.value:
             return redirect('https://github.com/INCY-DEV/incy-platforms/releases/latest/download/incy-windows-setup.exe')
         case _:
