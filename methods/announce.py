@@ -18,7 +18,7 @@ class Annonce(AppSettingsBase):
             announce_text = app_settings_repo.get_one(AppSetting.key == cls.key)
         if not announce_text:
             return cls.DEFAULT_SUBSCRIPTION_ANNOUNCE_TEXT
-        return announce_text
+        return announce_text.value
 
     @classmethod
     def get_header_value(cls) -> str:
