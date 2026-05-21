@@ -28,3 +28,8 @@ def auto_select_platform_by_download_app():
             return redirect('https://github.com/INCY-DEV/incy-platforms/releases/latest/download/incy-windows-setup.exe')
         case _:
             return 'Воспользуйтесь ручной наастройкой'
+
+def bool_in_circle_for_text(item: bool) -> str:
+    if item:
+        return "🟢"
+    return "🔴"

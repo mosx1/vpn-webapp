@@ -65,6 +65,24 @@
             margin: 0 0 14px;
             font-size: clamp(1.25rem, 3.8vw, 1.8rem);
         }
+        .info-all-servers {
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            line-height: 1.2;
+            color: var(--text-muted);
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            column-gap: 14px;
+            row-gap: 2px;
+        }
+        .info-all-servers p {
+            margin: 0;
+        }
+        @media (max-width: 640px) {
+            .info-all-servers {
+                grid-template-columns: 1fr;
+            }
+        }
         .panel-tools {
             display: flex;
             flex-wrap: wrap;
@@ -245,6 +263,11 @@
 <body>
     <div class="container">
         <h1>Панель администратора</h1>
+        <div class="info-all-servers">
+            {% for item in info_all_servers %}
+                <p>{{ item }}</p>
+            {% endfor %}
+        </div>
         <div class="panel-tools">
             <form method="get" action="/admin" class="search-form">
                 <input type="hidden" name="token" value="{{ token }}">

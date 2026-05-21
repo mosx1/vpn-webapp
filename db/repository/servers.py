@@ -1,4 +1,3 @@
-from sqlalchemy.orm import query
 from ..common import BaseRepository
 
 from db.models import ServersTable, User
@@ -57,3 +56,39 @@ class ServersRepository(BaseRepository[ServersTable]):
         result = self.session.execute(query).one()
         
         return result.id
+
+    def get_info_all_servers(self):
+        """
+            Информация по всем серверам вместе
+        """
+        query = select(
+            func.count().label("count"),
+            func.count().filter(User.paid == True).label("count_pay")
+        ).filter(User.action == True)
+            
+        return self.session.execute(query).one()
+
+    def get_info_servers(self):
+        """
+            Информация отдельно по каждому серверу
+        """
+        conf = read_config()
+        query = (
+            select(
+                ServersTable.name.label("name"),
+                ServersTable.answers,
+                func.count().label("count"),
+                func.count().filter(User.paid == True).label("count_pay"),
+                (func.count() / conf['BaseConfig'].getfloat('coefficient_load_servers') / ServersTable.speed * 100).label('load')
+            ).join(
+                User, ServersTable.id == User.server_id
+            ).filter(
+                User.action == True
+            ).group_by(
+                ServersTable.name,
+                ServersTable.speed,
+                ServersTable.answers
+            )
+        ).order_by(text('count_pay DESC'))
+            
+        return self.session.execute(query).all()

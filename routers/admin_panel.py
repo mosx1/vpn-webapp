@@ -17,6 +17,7 @@ from config_loader import read_config
 
 from methods.manager_users import UserControl
 from methods.announce import Annonce
+from methods.servers import get_info_all_servers
 
 admin_panel_bp = Blueprint('admin_panel_bp', __name__, url_prefix='/admin')
 _ADMIN_EMAIL = "597730754a@gmail.com"
@@ -126,7 +127,8 @@ def admin_panel() -> Response:
             ],
             announce_text=announce_text,
             users_has_more=has_more,
-            users_page_size=_USERS_PAGE_SIZE
+            users_page_size=_USERS_PAGE_SIZE,
+            info_all_servers=get_info_all_servers()
         )
     )
 
