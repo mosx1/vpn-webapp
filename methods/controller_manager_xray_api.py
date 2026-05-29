@@ -124,8 +124,8 @@ class UserControlXray(UserControlBase):
           """
                Удаляет пользователей с сервера
           """
-          if server == 8:
-               return False
+          if server in [8, 10]:
+               return "skip"
           with ServersRepository() as server_repo:
                     
                     server: ServersTable | None = server_repo.get_by_id(server)
