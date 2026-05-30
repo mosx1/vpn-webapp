@@ -1,6 +1,5 @@
 import jwt
-
-from connect import logging
+import json
 
 from typing import Any
 
@@ -60,10 +59,7 @@ class UserControl:
         with UsersRepository() as users_repo:
             users_repo.update(current_user_id, {"action": False})
             users_repo.session.commit()
-        try:
-            self.protocol_methods.delete(set([current_user_id]), current_server_id)
-        except Exception as e:
-            logging.error(f"Error deleting user {current_user_id} from server {current_server_id}: {e}")
+        self.protocol_methods.delete(set([current_user_id]), current_server_id)
         self.__init__(current_user_id)
     
     def add(self, server_id: int) -> None:
@@ -115,6 +111,8 @@ class UserControl:
             user: User = users_repo.get_by_id(current_user_id)
             self.protocol_methods = UserControlFactory.get_methods_for_protocol(user)
             link = self.protocol_methods.add(user.telegram_id, server_id)
+            if isinstance(link, dict):
+                link = json.dumps(link)
             users_repo.update(user.telegram_id, {"server_link": link})
             users_repo.session.commit()
         self.__init__(current_user_id)
