@@ -1,5 +1,7 @@
 import jwt
 
+from connect import logging
+
 from typing import Any
 
 from flask import request
@@ -58,7 +60,10 @@ class UserControl:
         with UsersRepository() as users_repo:
             users_repo.update(current_user_id, {"action": False})
             users_repo.session.commit()
-        self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        try:
+            self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        except Exception as e:
+            logging.error(f"Error deleting user {current_user_id} from server {current_server_id}: {e}")
         self.__init__(current_user_id)
     
     def add(self, server_id: int) -> None:
