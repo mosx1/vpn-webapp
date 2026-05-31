@@ -6,8 +6,10 @@ from routers.auth import auth
 from routers.admin_panel import admin_panel_bp
 from routers.payment import payment_bp
 
+from urllib.parse import urlencode
+
 from flask import Flask
-from flask import send_from_directory, redirect
+from flask import send_from_directory, redirect, request
 
 
 app = Flask(__name__)
@@ -21,7 +23,12 @@ app.register_blueprint(payment_bp)
 
 @app.route('/')
 def index():
-    return redirect('/auth/')
+    query_params = request.args.to_dict(flat=False)
+    query_string = urlencode(query_params, doseq=True)
+    auth_url = '/auth/'
+    if query_string:
+        auth_url = f'{auth_url}?{query_string}'
+    return redirect(auth_url)
 
 
 @app.route('/download_app')
