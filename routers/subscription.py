@@ -2,10 +2,11 @@ import base64
 import datetime
 import uuid
 import re
-
 import jwt
+import json
 
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from flask import Blueprint, Response, render_template, request, redirect
 
@@ -31,6 +32,34 @@ _PROTOCOL_DISPLAY: dict[int, str] = {
     Protocols.amneziawg.value: "AmneziaWG"
 }
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _build_vless_troubleshoot_config(server_link: str) -> dict[str, Any]:
+    if server_link.startswith("vless://"):
+        return server_link
+        
+    server_link = json.loads(server_link)
+
+    return {
+        "type": "vless",
+        "server": server_link["outbounds"][0]['settings']['vnext'][0]['address'],
+        "server_port": server_link["outbounds"][0]['settings']['vnext'][0]['port'],
+        "uuid": server_link["outbounds"][0]['settings']['vnext'][0]['users'][0]['id'],
+        "flow": server_link["outbounds"][0]['settings']['vnext'][0]['users'][0]['flow'],
+        "tls": {
+            "enabled": True,
+            "server_name": server_link["outbounds"][0]['streamSettings']['realitySettings']['serverName'],
+            "utls": {
+                "enabled": True,
+                "fingerprint": "firefox"
+            },
+            "reality": {
+                "enabled": True,
+                "public_key": server_link["outbounds"][0]['streamSettings']['realitySettings']['publicKey'],
+                "short_id": server_link["outbounds"][0]['streamSettings']['realitySettings']['shortId']
+            }
+        }
+    }
 
 def _decode_token(raw_jwt: str) -> dict[str, Any]:
     config = read_config()
@@ -146,6 +175,7 @@ def home_page() -> Response:
     protocol_name = _PROTOCOL_DISPLAY.get(user.protocol, str(user.protocol))
     subscription_exit: bool = user.exit_date > datetime.datetime.now()
     referal_code: str = f'https://{config["BaseConfig"].get("host")}?referal={user.telegram_id}'
+    vless_manual_config = _build_vless_troubleshoot_config(user.server_link)
     
     return Response(
         render_template(
@@ -162,7 +192,8 @@ def home_page() -> Response:
             subscription_exit=subscription_exit,
             email=email,
             is_admin=is_admin,
-            referal_code=referal_code
+            referal_code=referal_code,
+            vless_manual_config=vless_manual_config
         )
     )
 

@@ -575,7 +575,14 @@
                 <div class="step-panel step-panel--warn">
                     <h3>Если не работает</h3>
                     <p>Часто устройства, которые стоят у провайдеров от РКН, временно глушат определенные сервера VPN по паттернам поведения. Для начала попробуйте сменить сервер. Кнопка отрабатывает довольно долго, поэтому дожитесь загрузки. Обратите внимание, что достаточно 1 раз попробовать сменить сервер. Если это требуется несколько раз в день, переходите сразу к следующим пунктам.</p>
-                    <a href="/sub/transfer_other_server?token={{ token }}" class="button reload-btn">Сменить сервер</a>
+                    <div class="btn-row">
+                        <a href="/sub/transfer_other_server?token={{ token }}" class="button reload-btn">Сменить сервер</a>
+                    </div>
+                </div>
+                <div class="step-panel step-panel--warn">
+                    <h3>Смена профиля в роутере</h3>
+                    <p>Для смены профиля в роутере, вам необходимо скопировать JSON для настройки роутера и вставить его в роутер. Тип профила - outbounds</p>
+                    <a href="#" class="button" id="copy_vless_object">Скопировать JSON для настройки роутера</a>
                 </div>
             </div>
             </div>
@@ -711,10 +718,11 @@
             window.addEventListener('pageshow', hidePageLoader);
         })();
     </script>
-    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price, 'user_id': (user.id|string), 'protocol_is_two': (user.protocol == 2)}|tojson }}</script>
+    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price, 'user_id': (user.id|string), 'protocol_is_two': (user.protocol == 2), 'vless_manual_config': vless_manual_config}|tojson }}</script>
     <script>
         const subPageData = JSON.parse(document.getElementById('sub-page-data').textContent);
         const copySubUrl = document.getElementById('copy_sub_url');
+        const copyVlessObjectButton = document.getElementById('copy_vless_object');
         const copyReferralCodeButton = document.getElementById('copy_referral_code');
         const referralCodeValue = document.getElementById('referral_code_value');
         if (copySubUrl) {
@@ -770,6 +778,18 @@
                     navigator.clipboard.writeText(subPageData.server_link);
                     alert('Скопировано!');
                 });
+            });
+        }
+        if (copyVlessObjectButton) {
+            copyVlessObjectButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                if (!subPageData.vless_manual_config) {
+                    alert('Для текущей подписки JSON недоступен.');
+                    return;
+                }
+                const manualConfigJson = JSON.stringify(subPageData.vless_manual_config, null, 2);
+                navigator.clipboard.writeText(manualConfigJson);
+                alert('JSON скопирован!');
             });
         }
         const openPayModalButtons = document.querySelectorAll('[data-pay-trigger]');
