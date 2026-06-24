@@ -105,6 +105,15 @@ def _validate_captcha(captcha_nonce: str, captcha_code: str) -> bool:
 
 @auth.route('/')
 def auth_main() -> Response:
+    """
+    Render auth form page.
+    ---
+    tags:
+      - Auth
+    responses:
+      200:
+        description: Auth page with captcha nonce.
+    """
     captcha_nonce, _ = _create_captcha()
     return Response(
         render_template(
@@ -118,6 +127,23 @@ def auth_main() -> Response:
 
 @auth.route('/captcha')
 def captcha_image() -> Response:
+    """
+    Generate captcha SVG image by nonce.
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: query
+        name: nonce
+        required: true
+        type: string
+        description: Captcha nonce generated on auth page.
+    responses:
+      200:
+        description: Captcha image in SVG format.
+      404:
+        description: Captcha expired or nonce not found.
+    """
     captcha_nonce = request.args.get('nonce', '').strip()
     with _captcha_lock:
         stored = _captcha_store.get(captcha_nonce)
@@ -136,6 +162,32 @@ def captcha_image() -> Response:
 
 @auth.route('/confirm_email')
 def confirm_email() -> Response:
+    """
+    Validate captcha and send personal login link.
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: query
+        name: email
+        required: true
+        type: string
+      - in: query
+        name: captcha_code
+        required: true
+        type: string
+      - in: query
+        name: captcha_nonce
+        required: true
+        type: string
+      - in: query
+        name: referal
+        required: false
+        type: string
+    responses:
+      200:
+        description: Confirmation result page (or auth page with validation error).
+    """
     email = request.args.get('email', '').strip()
     captcha_code: str = request.args.get('captcha_code', '').strip()
     captcha_nonce: str = request.args.get('captcha_nonce', '').strip()

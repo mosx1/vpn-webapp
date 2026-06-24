@@ -6,7 +6,6 @@ import jwt
 import json
 
 from typing import Any
-from urllib.parse import parse_qs, unquote, urlsplit
 
 from flask import Blueprint, Response, render_template, request, redirect
 
@@ -73,7 +72,23 @@ def _decode_token(raw_jwt: str) -> dict[str, Any]:
 @sub.route('/')
 def _() -> Response:
     """
-        Отдает строки для подписки
+    Return subscription data payload and metadata headers.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: jwt
+        required: false
+        type: string
+      - in: query
+        name: token
+        required: false
+        type: string
+        description: Alternative token parameter when jwt is absent.
+    responses:
+      200:
+        description: Base64-encoded subscription body with profile headers.
     """
     payload = {}
 
@@ -111,7 +126,20 @@ def _() -> Response:
 @sub.route('/mobile')
 def linkIphone() -> Response:
     """
-        Создает ссылку для подписки
+    Build mobile deep link for subscription import.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      302:
+        description: Redirect to app deep link.
+      200:
+        description: Manual setup hint for unsupported devices.
     """
 
     config = read_config()
@@ -146,6 +174,20 @@ def linkIphone() -> Response:
 
 @sub.route('/home')
 def home_page() -> Response:
+    """
+    Render user subscription dashboard.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      200:
+        description: Personal subscription page.
+    """
     
     config = read_config()
     raw_jwt = request.args.get('token').strip()
@@ -200,6 +242,20 @@ def home_page() -> Response:
 
 @sub.route('/transfer_other_server')
 def transfer_other_server() -> Response:
+    """
+    Move user to another available server.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      302:
+        description: Redirect back to subscription home.
+    """
 
     raw_jwt = request.args.get('token').strip()
     user: User = get_current_user()
@@ -213,6 +269,35 @@ def transfer_other_server() -> Response:
 
 @sub.route('/pay')
 def payment() -> Response:
+    """
+    Start payment flow and redirect to payment provider.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+      - in: query
+        name: month
+        required: false
+        type: integer
+      - in: query
+        name: gift
+        required: false
+        type: integer
+        description: 1 for gift purchase.
+      - in: query
+        name: gift_email
+        required: false
+        type: string
+    responses:
+      302:
+        description: Redirect to payment URL.
+      400:
+        description: Invalid month count or gift recipient email.
+    """
 
     config = read_config()
 
@@ -264,6 +349,20 @@ def payment() -> Response:
 
 @sub.route("/transfer_protocol")
 def transfer_protocol() -> Response:
+    """
+    Switch user protocol between Xray and AmneziaWG.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      302:
+        description: Redirect back to subscription home.
+    """
 
     raw_jwt = request.args.get('token').strip()
     user: User = get_current_user()
@@ -281,6 +380,20 @@ def transfer_protocol() -> Response:
 
 @sub.route('/resume')
 def resume() -> Response:
+    """
+    Resume suspended subscription.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      302:
+        description: Redirect back to subscription home.
+    """
     raw_jwt = request.args.get('token').strip()
     user: User = get_current_user()
 

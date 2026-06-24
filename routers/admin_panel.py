@@ -92,6 +92,29 @@ def _get_users_page(search_query: str, offset: int, limit: int):
 
 @admin_panel_bp.route('/')
 def admin_panel() -> Response:
+    """
+    Render admin panel page.
+    ---
+    tags:
+      - Admin
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+      - in: query
+        name: q
+        required: false
+        type: string
+        description: Search by user name, email or telegram id.
+    responses:
+      200:
+        description: Admin panel HTML.
+      400:
+        description: Missing token.
+      403:
+        description: Access denied.
+    """
     raw_jwt = _read_token_from_request()
     if not raw_jwt:
         return Response("Token is required", status=400)
@@ -135,6 +158,32 @@ def admin_panel() -> Response:
 
 @admin_panel_bp.route('/users')
 def admin_users_page() -> Response:
+    """
+    Return paginated users list for infinite scroll.
+    ---
+    tags:
+      - Admin
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+      - in: query
+        name: q
+        required: false
+        type: string
+      - in: query
+        name: offset
+        required: false
+        type: integer
+    responses:
+      200:
+        description: Users page payload with has_more flag.
+      400:
+        description: Missing token or invalid offset.
+      403:
+        description: Access denied.
+    """
     raw_jwt = _read_token_from_request()
     if not raw_jwt:
         return Response("Token is required", status=400)
@@ -166,6 +215,53 @@ def admin_users_page() -> Response:
 
 @admin_panel_bp.route('/user-action', methods=['POST'])
 def admin_user_action() -> Response:
+    """
+    Perform admin action for selected user.
+    ---
+    tags:
+      - Admin
+    consumes:
+      - application/x-www-form-urlencoded
+    parameters:
+      - in: formData
+        name: token
+        required: true
+        type: string
+      - in: formData
+        name: action
+        required: true
+        type: string
+        enum: [toggle, extend, reduce, change_server, change_protocol]
+      - in: formData
+        name: user_id
+        required: true
+        type: integer
+      - in: formData
+        name: month_count
+        required: false
+        type: integer
+      - in: formData
+        name: server_id
+        required: false
+        type: integer
+      - in: formData
+        name: protocol
+        required: false
+        type: integer
+      - in: formData
+        name: q
+        required: false
+        type: string
+    responses:
+      302:
+        description: Redirect back to admin page.
+      400:
+        description: Invalid request payload.
+      403:
+        description: Access denied.
+      404:
+        description: User/server/protocol not found.
+    """
     raw_jwt = _read_token_from_request()
     if not raw_jwt:
         return Response("Token is required", status=400)
@@ -256,6 +352,34 @@ def admin_user_action() -> Response:
 
 @admin_panel_bp.route('/announce', methods=['POST'])
 def admin_announce() -> Response:
+    """
+    Update subscription announce text.
+    ---
+    tags:
+      - Admin
+    consumes:
+      - application/x-www-form-urlencoded
+    parameters:
+      - in: formData
+        name: token
+        required: true
+        type: string
+      - in: formData
+        name: announce_text
+        required: true
+        type: string
+      - in: formData
+        name: q
+        required: false
+        type: string
+    responses:
+      302:
+        description: Redirect back to admin page.
+      400:
+        description: Missing token or announce text.
+      403:
+        description: Access denied.
+    """
     raw_jwt = _read_token_from_request()
     if not raw_jwt:
         return Response("Token is required", status=400)
@@ -279,6 +403,26 @@ def admin_announce() -> Response:
 
 @admin_panel_bp.route('/logs/download')
 def download_logs() -> Response:
+    """
+    Download server log file.
+    ---
+    tags:
+      - Admin
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      200:
+        description: Logs file stream.
+      400:
+        description: Missing token.
+      403:
+        description: Access denied.
+      404:
+        description: Log file not found.
+    """
     raw_jwt = _read_token_from_request()
     if not raw_jwt:
         return Response("Token is required", status=400)

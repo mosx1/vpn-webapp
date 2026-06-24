@@ -25,6 +25,31 @@ def _() -> Response | None:
 
 @vpn_app_bp.route('/list_users')
 def get_users() -> dict[str, Any]:
+    """
+    Return users list for external app.
+    ---
+    tags:
+      - Mobile App
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+        description: Security token for service access.
+      - in: query
+        name: limit
+        required: false
+        type: integer
+      - in: query
+        name: offset
+        required: false
+        type: integer
+    responses:
+      200:
+        description: Array of users with telegram_id, name and action.
+      401:
+        description: Invalid security token.
+    """
 
     with UsersRepository() as repo:
 
