@@ -244,7 +244,7 @@ def confirm_email() -> Response:
 
     send_yandex_email(
         to_email=email,
-        subject="Выгодный VPN. Личный кабинет",
+        subject="Выгодный VРN. Личный кабинет",
         text_body=f"Ваша персональная ссылка для входа в личный кабинет: https://kuzmos.ru/sub/home?token={token}",
     )
     return Response(render_template('auth/auth_end.html'))
