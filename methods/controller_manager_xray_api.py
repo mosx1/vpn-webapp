@@ -1,11 +1,50 @@
 from db.models import ServersTable
-import requests, json
+import json
+
+import requests
+from requests import Response
 
 from connect import logging
 
 from db.repository.servers import ServersRepository
 from db.repository.security import SecurityRepository
 from methods.interfaces import UserControlBase
+
+
+def _parse_xray_response(response: Response, action: str) -> dict | None:
+    if not response.text or not response.text.strip():
+        logging.warning(
+            "Xray %s: empty response from %s (status=%s)",
+            action,
+            response.url,
+            response.status_code,
+        )
+        return None
+
+    try:
+        payload = response.json()
+    except requests.exceptions.JSONDecodeError:
+        body_preview = response.text[:500]
+        logging.error(
+            "Xray %s: invalid JSON from %s (status=%s): %s",
+            action,
+            response.url,
+            response.status_code,
+            body_preview,
+        )
+        return None
+
+    if not isinstance(payload, dict):
+        logging.error(
+            "Xray %s: unexpected payload type from %s: %r",
+            action,
+            response.url,
+            payload,
+        )
+        return None
+
+    return payload
+
 
 class UserControlXray(UserControlBase):
      
@@ -32,7 +71,7 @@ class UserControlXray(UserControlBase):
                f'Создание пользователя {user_id} на сервере {server.links}'
           )
 
-          response = requests.get(
+          http_response = requests.get(
                "http://{}/add?user_id={}&token={}".format(
                     server.links,
                     user_id,
@@ -41,11 +80,15 @@ class UserControlXray(UserControlBase):
                timeout=60
           )
 
-          response = response.json()
-          if response["success"]:
+          response = _parse_xray_response(http_response, "add")
+          if response and response.get("success"):
                return response["link"]
 
-          logging.error("Ошибка в запросе на добавление пользователя")
+          logging.error(
+               "Ошибка в запросе на добавление пользователя: status=%s body=%s",
+               http_response.status_code,
+               http_response.text[:500],
+          )
 
 
 
@@ -140,14 +183,32 @@ class UserControlXray(UserControlBase):
                "token": token,
                "user_ids": list(user_ids)
           }
-          response = requests.post(
+          http_response = requests.post(
                "http://{}/del".format(
                     server.links
                ),
-               data = json.dumps(data),
+               data=json.dumps(data),
+               headers={"Content-Type": "application/json"},
                timeout=60
-               ).json()
+          )
 
-          return str(response)
+          response = _parse_xray_response(http_response, "delete")
+          if response is None:
+               logging.warning(
+                    "Xray delete: proceeding without parsed response for users %s on server %s",
+                    user_ids,
+                    server.links,
+               )
+               return False
+
+          if response.get("success") is False:
+               logging.error(
+                    "Xray delete failed for users %s on server %s: %s",
+                    user_ids,
+                    server.links,
+                    response,
+               )
+
+          return bool(response.get("success", True))
 
 
