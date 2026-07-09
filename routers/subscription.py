@@ -107,7 +107,7 @@ def _() -> Response:
     with UsersRepository() as user_rep:
         user: User | None = user_rep.get_by_telegram_id(payload['telegram_id'])
         headers = {
-            "subscription-userinfo": f"expire={user.exit_date.timestamp()};",
+            "subscription-userinfo": f"expire={int(user.exit_date.timestamp())};",
             "profile-update-interval": 1,
             "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}",
             "profile-title": "base64:0JLRi9Cz0L7QtNC90YvQuSBWUE4=",
