@@ -162,7 +162,9 @@ class UserControl:
             users_repo.update(
                 self.user.telegram_id,
                 {
-                    "exit_date": new_exit_date
+                    "exit_date": new_exit_date,
+                    "action": True,
+                    "paid": True
                 }
             )
             users_repo.session.commit()
