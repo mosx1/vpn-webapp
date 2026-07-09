@@ -165,3 +165,19 @@ class UsersRepository(BaseRepository[User]):
         )
         result = self.session.execute(query)
         return result.fetchall()
+
+    def get_all_telegram_ids(self) -> list[int]:
+        """
+            Возвращает все telegram_id пользователей.
+        """
+        query = select(User.telegram_id)
+        result = self.session.execute(query)
+        return result.scalars().all()
+
+    def get_telegram_ids_by_server_id(self, server_id: int) -> list[int]:
+        """
+            Возвращает telegram_id пользователей по конкретному серверу.
+        """
+        query = select(User.telegram_id).where(User.server_id == server_id)
+        result = self.session.execute(query)
+        return result.scalars().all()

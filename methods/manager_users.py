@@ -16,6 +16,7 @@ from methods.controller_manager_xray_api import UserControlXray
 from methods.controller_amneziawg import UserControlAmneziaWG
 from methods.controller_3x_ui import UserControl3xUI
 from methods.interfaces import UserControlBase
+from connect import logging
 
 from config_loader import read_config
 
@@ -104,7 +105,15 @@ class UserControl:
     def update_server(self, server_id: int) -> None:
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
-        self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        try:
+            self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        except Exception as error:
+            logging.warning(
+                "Skip delete on old server %s for user %s: %s",
+                current_server_id,
+                current_user_id,
+                error
+            )
         with UsersRepository() as users_repo:
             users_repo.update(current_user_id, {"server_id": server_id})
             users_repo.session.commit()
