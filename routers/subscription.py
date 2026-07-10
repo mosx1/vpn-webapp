@@ -218,6 +218,7 @@ def home_page() -> Response:
     subscription_exit: bool = user.exit_date > datetime.datetime.now()
     referal_code: str = f'https://{config["BaseConfig"].get("host")}?referal={user.telegram_id}'
     vless_manual_config = _build_vless_troubleshoot_config(user.server_link)
+    announce_text = Annonce.get_text()
     
     return Response(
         render_template(
@@ -235,7 +236,8 @@ def home_page() -> Response:
             email=email,
             is_admin=is_admin,
             referal_code=referal_code,
-            vless_manual_config=vless_manual_config
+            vless_manual_config=vless_manual_config,
+            announce_text=announce_text
         )
     )
 

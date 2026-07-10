@@ -339,6 +339,24 @@
             color: var(--text);
             font-weight: 600;
         }
+        .announce-panel {
+            margin: 0 0 14px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-soft);
+            text-align: left;
+            color: var(--text);
+            white-space: pre-line;
+            font-size: clamp(0.88rem, 2.2vw, 0.95rem);
+            line-height: 1.45;
+        }
+        .announce-panel__title {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 700;
+            color: var(--text);
+        }
         /* Полноэкранный лоадер */
         #loader {
             position: fixed;
@@ -496,6 +514,12 @@
     </div>
     <div class="container">
         <img class="hero-img" src="{{ url_for('static', filename='image/vpn_logo.jpeg') }}" alt="VРN" loading="eager" decoding="async">
+        {% if announce_text %}
+        <div class="announce-panel">
+            <span class="announce-panel__title">Объявление</span>
+            {{ announce_text }}
+        </div>
+        {% endif %}
         <p class="protocol-current">Сохраните в закладки данную страницу, чтоб не авторизовываться каждый раз.</p>
         <p class="protocol-current">Не передавайте ссылку на подписку другим людям - это может привести к потере скорости подписки.</p>
         <div class="section step-panel">
