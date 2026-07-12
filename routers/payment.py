@@ -8,6 +8,7 @@ from methods.payment.common import success_payment, success_payment_gift
 payment_bp = Blueprint('payment_bp', __name__, url_prefix='/payment')
 
 @payment_bp.route('/info', methods=['POST'])
+@payment_bp.route('/cripto_callback', methods=['POST'])
 def payment_info() -> Response:
     """
     Process successful payment callback by label.
@@ -37,7 +38,8 @@ def payment_info() -> Response:
         description: Invalid or missing label.
     """
     payload = request.get_json(silent=True) or {}
-    label = str(payload.get('label') or request.form.get('label') or '').strip()
+    label = str(payload.get('label') or request.form.get('label') or payload.get('order_id') or '').strip()
+    
     with SaleInvoicesInProgressRepository() as siip_repo:
         invoice: SaleInvoicesInProgress | None = siip_repo.get_one(SaleInvoicesInProgress.label == label)
 

@@ -197,6 +197,13 @@
             width: auto;
             margin-top: 0;
         }
+        .terms-notice {
+            margin: 10px 0 0;
+            font-size: clamp(0.72rem, 1.9vw, 0.8rem);
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.4;
+        }
         @media (max-width: 480px) {
             .form-actions .button {
                 flex: 1 1 100%;
@@ -349,6 +356,7 @@
                     <div class="form-actions">
                         <button type="submit" class="button">Продолжить</button>
                     </div>
+                    <p class="terms-notice">Нажимая продолжить, вы соглашаетесь с условиями сервиса</p>
                 </div>
             </form>
             <p>На email будет отправлена ссылка на личный кабинет. Сохраните ее у себя в закладках браузера и не передвайте третьим лицам.</p>

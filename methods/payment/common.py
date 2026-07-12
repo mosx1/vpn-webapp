@@ -14,6 +14,17 @@ from methods.manager_users import UserControl
 from methods.mail.email_sender import send_yandex_email
 from connect import logging
 
+_DEFAULT_SUCCESS_PAYMENT_URL = "https://kuzmos.ru/successful-payment"
+
+
+def get_success_payment_url() -> str:
+    conf = read_config()
+    if conf.has_section("Payment"):
+        success_url = conf["Payment"].get("success_url", "").strip()
+        if success_url:
+            return success_url
+    return _DEFAULT_SUCCESS_PAYMENT_URL
+
 
 def success_payment(invoice: SaleInvoicesInProgress):
     with UsersRepository() as users_repo:

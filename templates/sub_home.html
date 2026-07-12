@@ -299,6 +299,17 @@
             background: transparent;
             cursor: pointer;
         }
+        .button--crypto {
+            background: linear-gradient(145deg, #0f766e 0%, #115e59 100%);
+            box-shadow: 0 4px 14px rgb(15 118 110 / 0.35);
+        }
+        @media (min-width: 481px) {
+            a.button.button--crypto:hover {
+                filter: brightness(1.05);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 24px rgb(15 118 110 / 0.4);
+            }
+        }
         .note {
             color: var(--text-muted);
             font-size: clamp(0.82rem, 2.1vw, 0.92rem);
@@ -653,6 +664,9 @@
                 <p class="pay-modal__amount">К оплате: <span id="pay-total-amount">{{ month_price }} руб.</span></p>
                 <div class="pay-modal__actions">
                     <a href="{{ pay_link }}" class="button" id="pay-modal-confirm">Перейти к оплате</a>
+                    {% if crypto_payment_enabled %}
+                    <a href="{{ pay_link }}" class="button button--crypto" id="pay-modal-crypto-confirm">Оплатить криптовалютой</a>
+                    {% endif %}
                     <button type="button" class="pay-modal__cancel" id="pay-modal-cancel">Отмена</button>
                 </div>
             </div>
@@ -819,6 +833,7 @@
         const payModal = document.getElementById('pay-modal');
         const payModalCancel = document.getElementById('pay-modal-cancel');
         const payModalConfirm = document.getElementById('pay-modal-confirm');
+        const payModalCryptoConfirm = document.getElementById('pay-modal-crypto-confirm');
         const payMonthsInput = document.getElementById('pay-months-input');
         const payTotalAmount = document.getElementById('pay-total-amount');
         const payGiftEmailField = document.getElementById('pay-gift-email-field');
@@ -846,6 +861,11 @@
                 document.body.classList.add('loading');
                 updatePayAmount();
                 payModalConfirm.href = baseHref;
+                if (payModalCryptoConfirm) {
+                    const cryptoUrl = new URL(baseHref, window.location.origin);
+                    cryptoUrl.searchParams.set('provider', 'trybit');
+                    payModalCryptoConfirm.href = cryptoUrl.toString();
+                }
                 const isGiftMode = payMode === 'gift';
                 payGiftEmailField.hidden = !isGiftMode;
                 payGiftEmailInput.value = '';
@@ -858,27 +878,7 @@
                     }
                 }, 0);
             };
-            openPayModalButtons.forEach(function (button) {
-                button.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const mode = button.dataset.payTrigger === 'gift' ? 'gift' : 'prolong';
-                    openModal(mode, button.href);
-                });
-            });
-            payModalCancel.addEventListener('click', closePayModal);
-            payModal.addEventListener('click', function (e) {
-                if (e.target === payModal) {
-                    closePayModal();
-                }
-            });
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && !payModal.hidden) {
-                    closePayModal();
-                }
-            });
-            payMonthsInput.addEventListener('input', updatePayAmount);
-            payModalConfirm.addEventListener('click', function (e) {
-                e.preventDefault();
+            const redirectToPayment = function (baseHref, provider) {
                 const monthCount = parseInt(payMonthsInput.value, 10);
                 if (!Number.isInteger(monthCount) || monthCount < 1) {
                     alert('Введите количество месяцев от 1 и больше.');
@@ -903,17 +903,52 @@
                         payGiftEmailInput.focus();
                         return;
                     }
-                    const payUrl = new URL(payModalConfirm.href, window.location.origin);
+                    const payUrl = new URL(baseHref, window.location.origin);
                     payUrl.searchParams.set('month', String(monthCount));
                     payUrl.searchParams.set('gift', '1');
                     payUrl.searchParams.set('gift_email', recipientEmail);
+                    if (provider) {
+                        payUrl.searchParams.set('provider', provider);
+                    }
                     window.location.href = payUrl.toString();
                     return;
                 }
-                const payUrl = new URL(payModalConfirm.href, window.location.origin);
+                const payUrl = new URL(baseHref, window.location.origin);
                 payUrl.searchParams.set('month', String(monthCount));
+                if (provider) {
+                    payUrl.searchParams.set('provider', provider);
+                }
                 window.location.href = payUrl.toString();
+            };
+            openPayModalButtons.forEach(function (button) {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const mode = button.dataset.payTrigger === 'gift' ? 'gift' : 'prolong';
+                    openModal(mode, button.href);
+                });
             });
+            payModalCancel.addEventListener('click', closePayModal);
+            payModal.addEventListener('click', function (e) {
+                if (e.target === payModal) {
+                    closePayModal();
+                }
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !payModal.hidden) {
+                    closePayModal();
+                }
+            });
+            payMonthsInput.addEventListener('input', updatePayAmount);
+            payModalConfirm.addEventListener('click', function (e) {
+                e.preventDefault();
+                redirectToPayment(payModalConfirm.href);
+            });
+            if (payModalCryptoConfirm) {
+                payModalCryptoConfirm.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    redirectToPayment(payModalCryptoConfirm.href, 'trybit');
+                });
+            }
         }
         if (openRouterModalButtons.length && routerModal && routerModalCancel) {
             const openRouterModal = function () {
