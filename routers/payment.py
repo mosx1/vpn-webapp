@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, Response, render_template, jsonify, request
 
 from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
 from db.models import SaleInvoicesInProgress
@@ -51,3 +51,8 @@ def payment_info() -> Response:
     else:
         success_payment(invoice)
     return jsonify("success"), 200
+
+
+@payment_bp.route('/successful-payment')
+def cripto_callback() -> Response:
+  return Response(render_template('payment/successful_payment.html'))
