@@ -36,9 +36,12 @@ _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 def _build_vless_troubleshoot_config(server_link: str) -> dict[str, Any]:
     if server_link.startswith("vless://"):
         return server_link
-        
+  
     server_link = json.loads(server_link)
 
+    if "outbounds" not in server_link:
+        return server_link
+    
     return {
         "type": "vless",
         "server": server_link["outbounds"][0]['settings']['vnext'][0]['address'],
