@@ -20,7 +20,7 @@ from db.repository.devices import Devices
 
 from config_loader import read_config
 
-from methods.payment.yoomoneyMethods import get_link_payment
+from methods.payment.provider import get_link_payment, is_trybit_configured
 from methods.manager_users import UserControl, get_current_user, get_link_subscription
 from methods.announce import Annonce
 
@@ -237,7 +237,8 @@ def home_page() -> Response:
             is_admin=is_admin,
             referal_code=referal_code,
             vless_manual_config=vless_manual_config,
-            announce_text=announce_text
+            announce_text=announce_text,
+            crypto_payment_enabled=is_trybit_configured(),
         )
     )
 
@@ -294,6 +295,11 @@ def payment() -> Response:
         name: gift_email
         required: false
         type: string
+      - in: query
+        name: provider
+        required: false
+        type: string
+        description: Payment provider (yoomoney or trybit).
     responses:
       302:
         description: Redirect to payment URL.
@@ -340,8 +346,9 @@ def payment() -> Response:
         )
 
     link = get_link_payment(
-        label, 
-        count_month
+        label,
+        count_month,
+        provider=request.args.get("provider"),
     )
 
     return redirect(

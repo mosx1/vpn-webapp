@@ -3,6 +3,7 @@ from yoomoney import History, Quickpay, Client
 from config_loader import read_config
 
 from connect import logging
+from methods.payment.common import get_success_payment_url
 
 
 def getInfoLastPayment(label: str) -> dict:
@@ -44,7 +45,8 @@ def get_link_payment(label: str, month: int) -> str:
         targets="Оплата VPN",
         paymentType="SB",
         sum=conf['Price'].getint('RUB') * month,
-        label=label
+        label=label,
+        successURL=get_success_payment_url(),
     )
 
     return quickpay.redirected_url
