@@ -355,6 +355,7 @@
                         <label for="admin-server-link">server_link пользователя</label>
                         <textarea id="admin-server-link" readonly></textarea>
                         <button type="button" class="button button--muted" id="admin-copy-server-link">Скопировать server_link</button>
+                        <button type="button" class="button button--muted" id="admin-copy-router-config">Скопировать JSON для настройки роутера</button>
                     </div>
                     <button type="button" class="button button--muted" id="admin-close-modal">Закрыть</button>
                 </div>
@@ -420,6 +421,7 @@
         const changeProtocolBtn = document.getElementById('admin-change-protocol-btn');
         const serverLinkArea = document.getElementById('admin-server-link');
         const copyServerLinkBtn = document.getElementById('admin-copy-server-link');
+        const copyRouterConfigBtn = document.getElementById('admin-copy-router-config');
         const usersList = document.getElementById('users-list');
         const usersLoading = document.getElementById('users-loading');
         const usersEmpty = document.getElementById('users-empty');
@@ -446,6 +448,48 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        function buildVlessTroubleshootConfig(serverLink) {
+            if (!serverLink) {
+                return null;
+            }
+            if (serverLink.startsWith('vless://')) {
+                return serverLink;
+            }
+            let parsed;
+            try {
+                parsed = JSON.parse(serverLink);
+            } catch (_err) {
+                return null;
+            }
+            if (!parsed || !parsed.outbounds) {
+                return parsed;
+            }
+            try {
+                return {
+                    type: 'vless',
+                    server: parsed.outbounds[0].settings.vnext[0].address,
+                    server_port: parsed.outbounds[0].settings.vnext[0].port,
+                    uuid: parsed.outbounds[0].settings.vnext[0].users[0].id,
+                    flow: parsed.outbounds[0].settings.vnext[0].users[0].flow,
+                    tls: {
+                        enabled: true,
+                        server_name: parsed.outbounds[0].streamSettings.realitySettings.serverName,
+                        utls: {
+                            enabled: true,
+                            fingerprint: 'firefox'
+                        },
+                        reality: {
+                            enabled: true,
+                            public_key: parsed.outbounds[0].streamSettings.realitySettings.publicKey,
+                            short_id: parsed.outbounds[0].streamSettings.realitySettings.shortId
+                        }
+                    }
+                };
+            } catch (_err) {
+                return null;
+            }
         }
 
         function submitAction(action) {
@@ -607,6 +651,15 @@
                 return;
             }
             navigator.clipboard.writeText(serverLinkArea.value);
+        });
+        copyRouterConfigBtn.addEventListener('click', function () {
+            const routerConfig = buildVlessTroubleshootConfig(serverLinkArea.value);
+            if (!routerConfig) {
+                alert('Для текущей подписки JSON недоступен.');
+                return;
+            }
+            navigator.clipboard.writeText(JSON.stringify(routerConfig, null, 2));
+            alert('JSON скопирован!');
         });
         closeModalBtn.addEventListener('click', function () {
             modal.hidden = true;
