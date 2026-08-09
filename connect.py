@@ -1,8 +1,7 @@
 import logging
 
-from sqlalchemy import Engine, create_engine
-
 from config_loader import read_config
+from db.connect import engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,8 +11,3 @@ logging.basicConfig(
 
 
 config = read_config()
-
-engine: Engine = create_engine(
-    f"postgresql+psycopg2://{config['Postgres'].get('user')}:{config['Postgres'].get('password')}@{config['Postgres'].get('host')}:{config['Postgres'].get('port')}/{config['Postgres'].get('dbname')}",
-    echo=config['Postgres'].getboolean('echo', False)
-)

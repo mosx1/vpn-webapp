@@ -1,6 +1,12 @@
+import gevent.monkey
+gevent.monkey.patch_socket()
+
+import requests
+
 from methods.common import bool_in_circle_for_text
 
 from db.repository.servers import ServersRepository
+from db.models import ServersTable
 
 
 def get_info_all_servers() -> list[str]:
@@ -11,3 +17,21 @@ def get_info_all_servers() -> list[str]:
         for item in servers_repo.get_info_servers():
             message_text.append(f"{bool_in_circle_for_text(item.answers)}|{item.count}|{item.count_pay}|{item.load}%: {item.name}")
         return message_text
+
+def health_check(url: str) -> int:
+    try:
+        res = requests.get(url, timeout=5)
+        return res.status_code
+    except Exception:
+        pass
+
+def health_check_and_update_answers(server: ServersTable):
+    code = health_check(f"http://{server.links}/config")
+    answers = bool(code == 200)
+    with ServersRepository() as servers_repo:
+        servers_repo.update_answer(server.id, answers)
+
+def check_answers_servers():
+    with ServersRepository() as servers_repo:
+        servers: list[ServersTable] = servers_repo.get_server_list(ServersTable.answers == False)
+    gevent.joinall([gevent.spawn(health_check_and_update_answers, server) for server in servers])

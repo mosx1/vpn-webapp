@@ -3,7 +3,7 @@ from typing import TypeVar, Generic, Optional, List, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update, delete
 
-from .connect import SQLASession
+from .connect import create_session
 
 
 T = TypeVar('T')  # Generic тип для модели SQLAlchemy
@@ -13,8 +13,7 @@ class AbstractRepository(ABC, Generic[T]):
     
     def __init__(self):
         """Инициализация репозитория с сессией SQLAlchemy"""
-        self.engine = SQLASession()
-        self.session: Session = self.engine.get_session()
+        self.session: Session = create_session()
 
     @property
     @abstractmethod
@@ -91,7 +90,7 @@ class AbstractRepository(ABC, Generic[T]):
         return result.scalar_one_or_none()
 
 
-class BaseRepository(AbstractRepository[T], SQLASession):
+class BaseRepository(AbstractRepository[T]):
 
     def __init__(self, model: type[T]):
         super().__init__()

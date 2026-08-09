@@ -2,11 +2,13 @@ from ..common import BaseRepository
 
 from db.models import ServersTable, User
 
-from sqlalchemy import select, func, text, and_
+from sqlalchemy import BinaryExpression, select, func, text, and_, update
 
 from typing import Any
 
 from config_loader import read_config
+
+from db.enums import PanelXray
 
 
 
@@ -35,7 +37,8 @@ class ServersRepository(BaseRepository[ServersTable]):
                 User,
                 and_(
                     User.server_id == ServersTable.id,
-                    User.action == True
+                    User.action == True,
+                    text(f"CASE WHEN servers.panel_xray = {PanelXray.xray.value} THEN servers.answers = true ELSE true END")
                 ), 
                 isouter=True
             )
@@ -92,3 +95,20 @@ class ServersRepository(BaseRepository[ServersTable]):
         ).order_by(text('count_pay DESC'))
             
         return self.session.execute(query).all()
+
+    def get_server_list(self, filter: BinaryExpression | None = None) -> list[ServersTable]:
+        query = select(ServersTable)
+        if filter:
+            query.filter(filter)
+        return self.session.execute(query).scalars().all()
+    
+    def update_answer(self, server_id: int, answers: bool) -> None:
+        self.session.execute(
+            update(
+                ServersTable
+            ).where(
+                ServersTable.id == server_id
+            ).values(
+                answers=answers
+            )
+        )

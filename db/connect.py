@@ -3,26 +3,20 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from config_loader import read_config
 
+_config = read_config()
 
-class SQLASession:
-    
-    def __init__(self) -> None:
+engine: Engine = create_engine(
+    (
+        f"postgresql+psycopg2://{_config['Postgres'].get('user')}:"
+        f"{_config['Postgres'].get('password')}@{_config['Postgres'].get('host')}:"
+        f"{_config['Postgres'].get('port')}/{_config['Postgres'].get('dbname')}"
+    ),
+    echo=_config['Postgres'].getboolean('echo', False),
+    pool_pre_ping=True,
+)
 
-        config = read_config()
-
-        self.engine: Engine = create_engine(
-            f"postgresql+psycopg2://{config['Postgres'].get('user')}:{config['Postgres'].get('password')}@{config['Postgres'].get('host')}:{config['Postgres'].get('port')}/{config['Postgres'].get('dbname')}",
-            echo=config['Postgres'].getboolean('echo', False)
-        )
-        
-
-    def get_session(self) -> Session:
-        return sessionmaker(bind=self.engine)()
-
-    def __enter__(self) -> Session:
-        self.session: Session = sessionmaker(bind=self.engine)()
-        return self.session
+SessionLocal = sessionmaker(bind=engine)
 
 
-    def __exit__(self, type_, value, traceback) -> None:
-        self.session.close()
+def create_session() -> Session:
+    return SessionLocal()
