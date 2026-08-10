@@ -33,7 +33,7 @@ _PROTOCOL_DISPLAY: dict[int, str] = {
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _build_vless_troubleshoot_config(server_link: str) -> dict[str, Any]:
+def _build_vless_troubleshoot_config(server_link: str) -> dict[str, Any] | str:
     if server_link.startswith("vless://"):
         return server_link
   

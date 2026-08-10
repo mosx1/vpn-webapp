@@ -658,8 +658,11 @@
                 alert('Для текущей подписки JSON недоступен.');
                 return;
             }
-            navigator.clipboard.writeText(JSON.stringify(routerConfig, null, 2));
-            alert('JSON скопирован!');
+            const routerConfigText = typeof routerConfig === 'string'
+                ? routerConfig
+                : JSON.stringify(routerConfig, null, 2);
+            navigator.clipboard.writeText(routerConfigText);
+            alert(typeof routerConfig === 'string' ? 'Ссылка скопирована!' : 'JSON скопирован!');
         });
         closeModalBtn.addEventListener('click', function () {
             modal.hidden = true;
