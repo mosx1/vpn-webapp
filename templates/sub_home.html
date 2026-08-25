@@ -830,11 +830,9 @@
                     alert('Для текущей подписки JSON недоступен.');
                     return;
                 }
-                const manualConfigText = typeof subPageData.vless_manual_config === 'string'
-                    ? subPageData.vless_manual_config
-                    : JSON.stringify(subPageData.vless_manual_config, null, 2);
+                const manualConfigText = typeof subPageData.vless_manual_config === 'string' ? subPageData.vless_manual_config : JSON.stringify(subPageData.vless_manual_config);
                 navigator.clipboard.writeText(manualConfigText);
-                alert(typeof subPageData.vless_manual_config === 'string' ? 'Ссылка скопирована!' : 'JSON скопирован!');
+                alert('Скопировано!');
             });
         }
         const openPayModalButtons = document.querySelectorAll('[data-pay-trigger]');
