@@ -29,22 +29,30 @@ class UserControlFactory:
         Protocols.xray.value: [UserControlXray, UserControl3xUI],
         Protocols.amneziawg.value: [UserControlAmneziaWG]
     }
+
     @classmethod
-    def get_methods_for_protocol(self, user: User) -> UserControlBase:
-        self.user = user
+    def get_methods_for_user_on_server(cls, user: User, server_id: int) -> UserControlBase:
         with ServersRepository() as servers_repo:
-            server: ServersTable = servers_repo.get_by_id(self.user.server_id)
-        match self.user.protocol:
+            server: ServersTable | None = servers_repo.get_by_id(server_id)
+        if not server:
+            raise ValueError(f"Server with id={server_id} not found")
+        match user.protocol:
             case Protocols.amneziawg.value:
-                return UserControlAmneziaWG(self.user)
+                return UserControlAmneziaWG(user)
             case Protocols.xray.value:
                 match server.panel_xray:
                     case PanelXray.xray.value:
-                        return UserControlXray(self.user)
+                        return UserControlXray(user)
                     case PanelXray.xui.value:
-                        return UserControl3xUI(self.user)
+                        return UserControl3xUI(user)
                     case _:
                         raise ValueError(f"Invalid panel xray: {server.panel_xray}")
+            case _:
+                raise ValueError(f"Invalid protocol: {user.protocol}")
+
+    @classmethod
+    def get_methods_for_protocol(cls, user: User) -> UserControlBase:
+        return cls.get_methods_for_user_on_server(user, user.server_id)
 
 
 class UserControl:
@@ -105,8 +113,25 @@ class UserControl:
     def update_server(self, server_id: int) -> None:
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
+
+        if server_id == current_server_id:
+            return
+
+        new_protocol_methods = UserControlFactory.get_methods_for_user_on_server(
+            self.user,
+            server_id
+        )
+        link = new_protocol_methods.add(current_user_id, server_id)
+        if isinstance(link, dict):
+            link = json.dumps(link)
+        if not link:
+            raise RuntimeError(
+                f"Failed to obtain subscription link on server {server_id} for user {current_user_id}"
+            )
+
+        old_protocol_methods = self.protocol_methods
         try:
-            self.protocol_methods.delete(set([current_user_id]), current_server_id)
+            old_protocol_methods.delete(set([current_user_id]), current_server_id)
         except Exception as error:
             logging.warning(
                 "Skip delete on old server %s for user %s: %s",
@@ -114,16 +139,29 @@ class UserControl:
                 current_user_id,
                 error
             )
-        with UsersRepository() as users_repo:
-            users_repo.update(current_user_id, {"server_id": server_id})
-            users_repo.session.commit()
-            user: User = users_repo.get_by_id(current_user_id)
-            self.protocol_methods = UserControlFactory.get_methods_for_protocol(user)
-            link = self.protocol_methods.add(user.telegram_id, server_id)
-            if isinstance(link, dict):
-                link = json.dumps(link)
-            users_repo.update(user.telegram_id, {"server_link": link})
-            users_repo.session.commit()
+
+        try:
+            with UsersRepository() as users_repo:
+                users_repo.update(
+                    current_user_id,
+                    {
+                        "server_id": server_id,
+                        "server_link": link,
+                    }
+                )
+                users_repo.session.commit()
+        except Exception:
+            try:
+                new_protocol_methods.delete(set([current_user_id]), server_id)
+            except Exception as cleanup_error:
+                logging.warning(
+                    "Failed to rollback user %s on server %s after DB error: %s",
+                    current_user_id,
+                    server_id,
+                    cleanup_error,
+                )
+            raise
+
         self.__init__(current_user_id)
     
     @staticmethod

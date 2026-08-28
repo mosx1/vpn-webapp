@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.13
  
 WORKDIR /vpn-webapp
 
@@ -10,4 +10,4 @@ COPY . /vpn-webapp
 RUN chmod +x /vpn-webapp/docker-entrypoint.sh
 
 ENTRYPOINT ["/vpn-webapp/docker-entrypoint.sh"]
-CMD ["python3.12", "app.py"]
+CMD ["python3.13", "app.py"]
