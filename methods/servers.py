@@ -30,8 +30,9 @@ def health_check_and_update_answers(server: ServersTable):
     answers = bool(code == 200)
     with ServersRepository() as servers_repo:
         servers_repo.update_answer(server.id, answers)
+        servers_repo.session.commit()
 
 def check_answers_servers():
     with ServersRepository() as servers_repo:
-        servers: list[ServersTable] = servers_repo.get_server_list(ServersTable.answers == False)
+        servers: list[ServersTable] = servers_repo.get_server_list()
     gevent.joinall([gevent.spawn(health_check_and_update_answers, server) for server in servers])
