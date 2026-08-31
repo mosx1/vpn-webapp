@@ -15,5 +15,9 @@ services:
     ports:
       - "${APP_PORT:-8000}:8000"
     restart: unless-stopped
+    environment:
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+      ENABLE_BACKGROUND_THREADS: ${ENABLE_BACKGROUND_THREADS:-1}
     volumes:
       - ${CONFIG_INI_HOST:-./config.ini}:/vpn-webapp/config.ini:ro

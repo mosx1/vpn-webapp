@@ -1,7 +1,5 @@
-import gevent.monkey
-gevent.monkey.patch_socket()
-
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 from methods.common import bool_in_circle_for_text
 
@@ -35,4 +33,5 @@ def health_check_and_update_answers(server: ServersTable):
 def check_answers_servers():
     with ServersRepository() as servers_repo:
         servers: list[ServersTable] = servers_repo.get_server_list()
-    gevent.joinall([gevent.spawn(health_check_and_update_answers, server) for server in servers])
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        list(executor.map(health_check_and_update_answers, servers))
