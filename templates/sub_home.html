@@ -198,6 +198,10 @@
                 flex: 1 1 100%;
                 min-width: 0;
             }
+            .btn-row--subscription > a.button:nth-child(-n+2) {
+                flex: 1 1 calc(50% - 5px);
+                width: auto;
+            }
         }
         @media (min-width: 481px) {
             a.button:hover {
@@ -558,7 +562,7 @@
                     </span>
                 </button>
             </p>
-            <div class="btn-row">
+            <div class="btn-row btn-row--subscription">
                 <a href="{{ pay_link }}" class="button" data-pay-trigger="prolong">Продлить</a>
                 <a href="{{ pay_link }}" class="button" data-pay-trigger="gift">Подарить</a>
                 <a href="#" class="button" data-router-modal-trigger="open">Купить роутер</a>
