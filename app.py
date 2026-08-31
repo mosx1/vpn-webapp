@@ -1,4 +1,4 @@
-import http, methods.common, uvicorn, threads
+import methods.common, os
 
 from routers.vpn_app import vpn_app_bp
 from routers.subscription import sub
@@ -101,10 +101,12 @@ def download(filename):
 
 
 if __name__ == '__main__':
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=8000,
-        interface="wsgi",
-        workers=2
+    os.execvp(
+        "gunicorn",
+        [
+            "gunicorn",
+            "app:app",
+            "-c",
+            "gunicorn.conf.py",
+        ],
     )
