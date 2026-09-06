@@ -246,6 +246,34 @@ def home_page() -> Response:
     )
 
 
+@sub.route('/update_after_transfer')
+def update_after_transfer() -> Response:
+    """
+    Remind user to refresh subscription after server transfer.
+    ---
+    tags:
+      - Subscription
+    parameters:
+      - in: query
+        name: token
+        required: true
+        type: string
+    responses:
+      200:
+        description: Update subscription reminder page.
+    """
+    raw_jwt = request.args.get('token', '').strip()
+    if not raw_jwt:
+        return Response("Token is required", status=400)
+
+    return Response(
+        render_template(
+            'sub_update_after_transfer.html',
+            token=raw_jwt,
+        )
+    )
+
+
 @sub.route('/transfer_other_server')
 def transfer_other_server() -> Response:
     """
@@ -270,7 +298,7 @@ def transfer_other_server() -> Response:
         server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
     user_control = UserControl(user.telegram_id)
     user_control.update_server(server_id)
-    return redirect(f"/sub/home?token={raw_jwt}")
+    return redirect(f"/sub/update_after_transfer?token={raw_jwt}")
 
 
 @sub.route('/pay')
