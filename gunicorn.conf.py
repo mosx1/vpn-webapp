@@ -1,7 +1,7 @@
 import multiprocessing
 import os
 
-bind = f"0.0.0.0:{os.getenv('APP_PORT', '8080')}"
+bind = f"0.0.0.0:{os.getenv('APP_PORT', '8000')}"
 workers = int(os.getenv("WEB_CONCURRENCY", max(2, multiprocessing.cpu_count())))
 worker_class = "sync"
 timeout = int(os.getenv("GUNICORN_TIMEOUT", "120"))
