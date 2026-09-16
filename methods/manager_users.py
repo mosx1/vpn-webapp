@@ -22,6 +22,10 @@ from config_loader import read_config
 
 from sqlalchemy import text
 from datetime import datetime
+from time import monotonic
+
+
+TRANSFER_TIME_BUDGET_SECONDS = 60.0
 
 
 class ServerProvisioningError(Exception):
@@ -141,11 +145,16 @@ class UserControl:
 
         return protocol_methods, link
 
-    def transfer_to_free_server(self, country: Any | None = None) -> int:
+    def transfer_to_free_server(
+        self,
+        country: Any | None = None,
+        time_budget: float = TRANSFER_TIME_BUDGET_SECONDS
+    ) -> int:
         """
             Переносит пользователя на менее загруженный доступный сервер
 
-            Если добавление на сервер не удалось - пробует следующий по загруженности
+            Если добавление на сервер не удалось - пробует следующий по загруженности.
+            Перебор ограничен по времени, чтобы запрос не был убит по таймауту gunicorn
 
             @throws ServerProvisioningError Если ни один из серверов не принял пользователя
         """
@@ -163,7 +172,19 @@ class UserControl:
                 f"No available servers to transfer user {current_user_id} from server {current_server_id}"
             )
 
+        started_at = monotonic()
+        attempted_server_ids: list[int] = []
+
         for candidate_server_id in candidate_server_ids:
+            if attempted_server_ids and monotonic() - started_at > time_budget:
+                logging.warning(
+                    "Transfer of user %s stopped by time budget after servers %s",
+                    current_user_id,
+                    attempted_server_ids
+                )
+                break
+
+            attempted_server_ids.append(candidate_server_id)
             try:
                 self.update_server(candidate_server_id)
                 return candidate_server_id
@@ -176,7 +197,7 @@ class UserControl:
                 )
 
         raise ServerProvisioningError(
-            f"Failed to transfer user {current_user_id} to any of servers {candidate_server_ids}"
+            f"Failed to transfer user {current_user_id} to any of servers {attempted_server_ids}"
         )
 
     def update_server(self, server_id: int) -> None:
