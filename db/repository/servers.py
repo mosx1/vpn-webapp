@@ -4,6 +4,7 @@ from db.models import ServersTable, User
 from db.enums import PanelXray
 
 from sqlalchemy import BinaryExpression, select, func, text, and_, or_, update
+from sqlalchemy.exc import NoResultFound
 
 from typing import Any
 
@@ -15,13 +16,16 @@ class ServersRepository(BaseRepository[ServersTable]):
     def __init__(self):
         super().__init__(ServersTable)
 
-    def get_very_free_server(self, country: Any | None = None, exclude_server_id: int | None = None) -> int:
+    def get_servers_by_load(
+        self,
+        country: Any | None = None,
+        exclude_server_id: int | None = None,
+        limit: int | None = None
+    ) -> list[int]:
         """
-            Возвращает менее загруженный сервер по стране
+            Возвращает id доступных серверов, отсортированные по возрастанию загрузки
             Если страна не передана - ищет по всем странам
         """
-        # check_answers_servers()
-
         conf = read_config()
 
         query = (
@@ -56,11 +60,24 @@ class ServersRepository(BaseRepository[ServersTable]):
             query
             .group_by(ServersTable.id)
             .order_by(text('count ASC'))
-            .limit(1)
         )
-        result = self.session.execute(query).one()
-        
-        return result.id
+
+        if limit:
+            query = query.limit(limit)
+
+        return [row.id for row in self.session.execute(query).all()]
+
+    def get_very_free_server(self, country: Any | None = None, exclude_server_id: int | None = None) -> int:
+        """
+            Возвращает менее загруженный сервер по стране
+            Если страна не передана - ищет по всем странам
+        """
+        server_ids = self.get_servers_by_load(country, exclude_server_id, limit=1)
+
+        if not server_ids:
+            raise NoResultFound("Нет доступных серверов")
+
+        return server_ids[0]
 
     def get_info_all_servers(self):
         """

@@ -24,6 +24,10 @@ from sqlalchemy import text
 from datetime import datetime
 
 
+class ServerProvisioningError(Exception):
+    """Не удалось создать пользователя на целевом сервере."""
+
+
 class UserControlFactory:
     _protocols = {
         Protocols.xray.value: [UserControlXray, UserControl3xUI],
@@ -110,6 +114,71 @@ class UserControl:
             user_repo.session.commit()
         self.__init__(current_user_id)
 
+    def _add_on_server(self, server_id: int) -> tuple[UserControlBase, str]:
+        """
+            Создает пользователя на указанном сервере и возвращает методы протокола со ссылкой
+
+            @throws ServerProvisioningError Если сервер недоступен или не отдал ссылку
+        """
+        current_user_id = int(self.user.telegram_id)
+        try:
+            protocol_methods = UserControlFactory.get_methods_for_user_on_server(
+                self.user,
+                server_id
+            )
+            link = protocol_methods.add(current_user_id, server_id)
+        except Exception as error:
+            raise ServerProvisioningError(
+                f"Failed to add user {current_user_id} on server {server_id}: {error}"
+            ) from error
+
+        if isinstance(link, dict):
+            link = json.dumps(link)
+        if not link:
+            raise ServerProvisioningError(
+                f"Failed to obtain subscription link on server {server_id} for user {current_user_id}"
+            )
+
+        return protocol_methods, link
+
+    def transfer_to_free_server(self, country: Any | None = None) -> int:
+        """
+            Переносит пользователя на менее загруженный доступный сервер
+
+            Если добавление на сервер не удалось - пробует следующий по загруженности
+
+            @throws ServerProvisioningError Если ни один из серверов не принял пользователя
+        """
+        current_user_id = int(self.user.telegram_id)
+        current_server_id = int(self.user.server_id)
+
+        with ServersRepository() as servers_repo:
+            candidate_server_ids = servers_repo.get_servers_by_load(
+                country=country,
+                exclude_server_id=current_server_id
+            )
+
+        if not candidate_server_ids:
+            raise ServerProvisioningError(
+                f"No available servers to transfer user {current_user_id} from server {current_server_id}"
+            )
+
+        for candidate_server_id in candidate_server_ids:
+            try:
+                self.update_server(candidate_server_id)
+                return candidate_server_id
+            except ServerProvisioningError as error:
+                logging.warning(
+                    "Transfer of user %s to server %s failed, trying next server: %s",
+                    current_user_id,
+                    candidate_server_id,
+                    error
+                )
+
+        raise ServerProvisioningError(
+            f"Failed to transfer user {current_user_id} to any of servers {candidate_server_ids}"
+        )
+
     def update_server(self, server_id: int) -> None:
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
@@ -117,17 +186,7 @@ class UserControl:
         if server_id == current_server_id:
             return
 
-        new_protocol_methods = UserControlFactory.get_methods_for_user_on_server(
-            self.user,
-            server_id
-        )
-        link = new_protocol_methods.add(current_user_id, server_id)
-        if isinstance(link, dict):
-            link = json.dumps(link)
-        if not link:
-            raise RuntimeError(
-                f"Failed to obtain subscription link on server {server_id} for user {current_user_id}"
-            )
+        new_protocol_methods, link = self._add_on_server(server_id)
 
         old_protocol_methods = self.protocol_methods
         try:
