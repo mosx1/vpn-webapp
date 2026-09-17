@@ -145,6 +145,25 @@ class UserControl:
 
         return protocol_methods, link
 
+    @staticmethod
+    def _is_server_unreachable(server_id: int) -> bool:
+        """
+            Проверяет, помечена ли нода как недоступная
+
+            Поле answers заполняет health-check по эндпоинту xray-api /config,
+            поэтому оно отражает доступность только для панели xray.
+            Для остальных панелей answers не показателен и доступность не проверяется
+        """
+        with ServersRepository() as servers_repo:
+            server: ServersTable | None = servers_repo.get_by_id(server_id)
+
+        if not server:
+            return True
+        if server.panel_xray != PanelXray.xray.value:
+            return False
+
+        return not server.answers
+
     def transfer_to_free_server(
         self,
         country: Any | None = None,
@@ -209,16 +228,23 @@ class UserControl:
 
         new_protocol_methods, link = self._add_on_server(server_id)
 
-        old_protocol_methods = self.protocol_methods
-        try:
-            old_protocol_methods.delete(set([current_user_id]), current_server_id)
-        except Exception as error:
+        if self._is_server_unreachable(current_server_id):
             logging.warning(
-                "Skip delete on old server %s for user %s: %s",
+                "Old server %s is unreachable, skip delete for user %s "
+                "(stale client will be removed by foreign users cleanup)",
                 current_server_id,
-                current_user_id,
-                error
+                current_user_id
             )
+        else:
+            try:
+                self.protocol_methods.delete(set([current_user_id]), current_server_id)
+            except Exception as error:
+                logging.warning(
+                    "Skip delete on old server %s for user %s: %s",
+                    current_server_id,
+                    current_user_id,
+                    error
+                )
 
         try:
             with UsersRepository() as users_repo:
