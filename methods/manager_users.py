@@ -22,6 +22,14 @@ from config_loader import read_config
 
 from sqlalchemy import text
 from datetime import datetime
+from time import monotonic
+
+
+TRANSFER_TIME_BUDGET_SECONDS = 60.0
+
+
+class ServerProvisioningError(Exception):
+    """Не удалось создать пользователя на целевом сервере."""
 
 
 class UserControlFactory:
@@ -110,6 +118,107 @@ class UserControl:
             user_repo.session.commit()
         self.__init__(current_user_id)
 
+    def _add_on_server(self, server_id: int) -> tuple[UserControlBase, str]:
+        """
+            Создает пользователя на указанном сервере и возвращает методы протокола со ссылкой
+
+            @throws ServerProvisioningError Если сервер недоступен или не отдал ссылку
+        """
+        current_user_id = int(self.user.telegram_id)
+        try:
+            protocol_methods = UserControlFactory.get_methods_for_user_on_server(
+                self.user,
+                server_id
+            )
+            link = protocol_methods.add(current_user_id, server_id)
+        except Exception as error:
+            raise ServerProvisioningError(
+                f"Failed to add user {current_user_id} on server {server_id}: {error}"
+            ) from error
+
+        if isinstance(link, dict):
+            link = json.dumps(link)
+        if not link:
+            raise ServerProvisioningError(
+                f"Failed to obtain subscription link on server {server_id} for user {current_user_id}"
+            )
+
+        return protocol_methods, link
+
+    @staticmethod
+    def _is_server_unreachable(server_id: int) -> bool:
+        """
+            Проверяет, помечена ли нода как недоступная
+
+            Поле answers заполняет health-check по эндпоинту xray-api /config,
+            поэтому оно отражает доступность только для панели xray.
+            Для остальных панелей answers не показателен и доступность не проверяется
+        """
+        with ServersRepository() as servers_repo:
+            server: ServersTable | None = servers_repo.get_by_id(server_id)
+
+        if not server:
+            return True
+        if server.panel_xray != PanelXray.xray.value:
+            return False
+
+        return not server.answers
+
+    def transfer_to_free_server(
+        self,
+        country: Any | None = None,
+        time_budget: float = TRANSFER_TIME_BUDGET_SECONDS
+    ) -> int:
+        """
+            Переносит пользователя на менее загруженный доступный сервер
+
+            Если добавление на сервер не удалось - пробует следующий по загруженности.
+            Перебор ограничен по времени, чтобы запрос не был убит по таймауту gunicorn
+
+            @throws ServerProvisioningError Если ни один из серверов не принял пользователя
+        """
+        current_user_id = int(self.user.telegram_id)
+        current_server_id = int(self.user.server_id)
+
+        with ServersRepository() as servers_repo:
+            candidate_server_ids = servers_repo.get_servers_by_load(
+                country=country,
+                exclude_server_id=current_server_id
+            )
+
+        if not candidate_server_ids:
+            raise ServerProvisioningError(
+                f"No available servers to transfer user {current_user_id} from server {current_server_id}"
+            )
+
+        started_at = monotonic()
+        attempted_server_ids: list[int] = []
+
+        for candidate_server_id in candidate_server_ids:
+            if attempted_server_ids and monotonic() - started_at > time_budget:
+                logging.warning(
+                    "Transfer of user %s stopped by time budget after servers %s",
+                    current_user_id,
+                    attempted_server_ids
+                )
+                break
+
+            attempted_server_ids.append(candidate_server_id)
+            try:
+                self.update_server(candidate_server_id)
+                return candidate_server_id
+            except ServerProvisioningError as error:
+                logging.warning(
+                    "Transfer of user %s to server %s failed, trying next server: %s",
+                    current_user_id,
+                    candidate_server_id,
+                    error
+                )
+
+        raise ServerProvisioningError(
+            f"Failed to transfer user {current_user_id} to any of servers {attempted_server_ids}"
+        )
+
     def update_server(self, server_id: int) -> None:
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
@@ -117,28 +226,25 @@ class UserControl:
         if server_id == current_server_id:
             return
 
-        new_protocol_methods = UserControlFactory.get_methods_for_user_on_server(
-            self.user,
-            server_id
-        )
-        link = new_protocol_methods.add(current_user_id, server_id)
-        if isinstance(link, dict):
-            link = json.dumps(link)
-        if not link:
-            raise RuntimeError(
-                f"Failed to obtain subscription link on server {server_id} for user {current_user_id}"
-            )
+        new_protocol_methods, link = self._add_on_server(server_id)
 
-        old_protocol_methods = self.protocol_methods
-        try:
-            old_protocol_methods.delete(set([current_user_id]), current_server_id)
-        except Exception as error:
+        if self._is_server_unreachable(current_server_id):
             logging.warning(
-                "Skip delete on old server %s for user %s: %s",
+                "Old server %s is unreachable, skip delete for user %s "
+                "(stale client will be removed by foreign users cleanup)",
                 current_server_id,
-                current_user_id,
-                error
+                current_user_id
             )
+        else:
+            try:
+                self.protocol_methods.delete(set([current_user_id]), current_server_id)
+            except Exception as error:
+                logging.warning(
+                    "Skip delete on old server %s for user %s: %s",
+                    current_server_id,
+                    current_user_id,
+                    error
+                )
 
         try:
             with UsersRepository() as users_repo:

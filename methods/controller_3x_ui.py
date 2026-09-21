@@ -359,6 +359,20 @@ class UserControl3xUI(UserControlBase):
         query_string = urlencode(list(query.items()), doseq=False)
         return f"vless://{client_id}@{host}:{port}?{query_string}#{quote(str(remark))}"
 
+    @staticmethod
+    def _panel_base_url(server_link: str) -> str:
+        """
+            Приводит адрес панели к абсолютному url
+
+            В БД links хранится без схемы (host:port), а requests требует схему
+        """
+        link = (server_link or "").strip().rstrip("/")
+        if not link:
+            raise RuntimeError("Server link is empty")
+        if not link.startswith(("http://", "https://")):
+            link = f"http://{link}"
+        return link
+
     @classmethod
     def _get_server(cls, server_id: int) -> ServersTable:
         with ServersRepository() as server_repo:
@@ -391,7 +405,7 @@ class UserControl3xUI(UserControlBase):
         response: Response = session.post(
             f"{base_url}/login",
             json={"username": username, "password": password},
-            timeout=20
+            timeout=(5, 20)
         )
         response.raise_for_status()
         payload = response.json()
@@ -414,7 +428,8 @@ class UserControl3xUI(UserControlBase):
         server = cls._get_server(server_id)
         config = cls._get_3xui_config()
         inbound_id = int(config["inbound_id"])
-        session = cls._login(server.links, config["username"], config["password"])
+        base_url = cls._panel_base_url(server.links)
+        session = cls._login(base_url, config["username"], config["password"])
         client_uuid = str(uuid.uuid4())
         sub_id = uuid.uuid4().hex[:16]
         client = {
@@ -429,9 +444,9 @@ class UserControl3xUI(UserControlBase):
         }
         
         response: Response = session.post(
-            f"{server.links}/panel/api/inbounds/addClient",
+            f"{base_url}/panel/api/inbounds/addClient",
             json=payload,
-            timeout=20,
+            timeout=(5, 20),
         )
         response.raise_for_status()
         data = response.json()
@@ -439,8 +454,8 @@ class UserControl3xUI(UserControlBase):
             logging.error("3x-ui addClient failed: %s", data)
 
         inbound_resp: Response = session.get(
-            f"{server.links}/panel/api/inbounds/get/{inbound_id}",
-            timeout=20,
+            f"{base_url}/panel/api/inbounds/get/{inbound_id}",
+            timeout=(5, 20),
         )
         inbound_resp.raise_for_status()
         inbound_data = inbound_resp.json()
@@ -464,7 +479,7 @@ class UserControl3xUI(UserControlBase):
         if not matched_client:
             matched_client = client
         
-        subscription_link = cls._build_vless_json_link(server.links, inbound_obj, matched_client, settings)
+        subscription_link = cls._build_vless_json_link(base_url, inbound_obj, matched_client, settings)
         logging.info("3x-ui client %s added to inbound %s", user_id, inbound_id)
         return subscription_link
 
@@ -478,10 +493,11 @@ class UserControl3xUI(UserControlBase):
         inbound_id = int(config["inbound_id"])
         client_id_field = config["client_id_field"] or "id"
 
-        session = cls._login(server.links, config["username"], config["password"])
+        base_url = cls._panel_base_url(server.links)
+        session = cls._login(base_url, config["username"], config["password"])
         inbound_resp: Response = session.get(
-            f"{server.links}/panel/api/inbounds/get/{inbound_id}",
-            timeout=20,
+            f"{base_url}/panel/api/inbounds/get/{inbound_id}",
+            timeout=(5, 20),
         )
         inbound_resp.raise_for_status()
         inbound_data = inbound_resp.json()
@@ -502,8 +518,8 @@ class UserControl3xUI(UserControlBase):
                 continue
             
             del_resp: Response = session.post(
-                f"{server.links}/panel/api/inbounds/{inbound_id}/delClient/{client_id}",
-                timeout=20,
+                f"{base_url}/panel/api/inbounds/{inbound_id}/delClient/{client_id}",
+                timeout=(5, 20),
             )
             del_resp.raise_for_status()
             del_data = del_resp.json()

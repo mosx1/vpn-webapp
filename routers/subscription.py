@@ -21,8 +21,15 @@ from db.repository.devices import Devices
 from config_loader import read_config
 
 from methods.payment.provider import get_link_payment, is_trybit_configured
-from methods.manager_users import UserControl, get_current_user, get_link_subscription
+from methods.manager_users import (
+    ServerProvisioningError,
+    UserControl,
+    get_current_user,
+    get_link_subscription
+)
 from methods.announce import Annonce
+
+from connect import logging
 
 sub = Blueprint('sub', __name__, url_prefix='/sub')
 
@@ -289,15 +296,27 @@ def transfer_other_server() -> Response:
     responses:
       302:
         description: Redirect back to subscription home.
+      503:
+        description: No available server accepted the user.
     """
 
     raw_jwt = request.args.get('token').strip()
     user: User = get_current_user()
-    
-    with ServersRepository() as server_rep:
-        server_id: int = server_rep.get_very_free_server(exclude_server_id=user.server_id)
+
     user_control = UserControl(user.telegram_id)
-    user_control.update_server(server_id)
+    try:
+        user_control.transfer_to_free_server()
+    except ServerProvisioningError as error:
+        logging.error(
+            "Failed to transfer user %s to another server: %s",
+            user.telegram_id,
+            error
+        )
+        return Response(
+            "Не удалось сменить сервер, попробуйте позже",
+            status=503
+        )
+
     return redirect(f"/sub/update_after_transfer?token={raw_jwt}")
 
 

@@ -77,7 +77,7 @@ class UserControlXray(UserControlBase):
                     user_id,
                     token
                ),
-               timeout=60
+               timeout=(5, 60)
           )
 
           response = _parse_xray_response(http_response, "add")
@@ -189,7 +189,7 @@ class UserControlXray(UserControlBase):
                ),
                data=json.dumps(data),
                headers={"Content-Type": "application/json"},
-               timeout=60
+               timeout=(5, 60)
           )
 
           response = _parse_xray_response(http_response, "delete")
