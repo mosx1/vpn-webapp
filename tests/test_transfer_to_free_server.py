@@ -48,8 +48,10 @@ def transfer_env(monkeypatch):
     }
 
     servers_repo = SimpleNamespace(
-        get_servers_by_load=lambda country=None, exclude_server_id=None, limit=None: [
-            server_id for server_id in state["candidates"] if server_id != exclude_server_id
+        get_servers_by_load=lambda country=None, exclude_server_id=None, exclude_server_ids=None, panel_xray=None, limit=None: [
+            server_id
+            for server_id in state["candidates"]
+            if server_id != exclude_server_id and server_id not in set(exclude_server_ids or [])
         ],
         get_by_id=lambda server_id: state["servers"].get(server_id),
     )
@@ -65,6 +67,17 @@ def transfer_env(monkeypatch):
 
     monkeypatch.setattr(manager_users, "UsersRepository", users_repo_factory)
     monkeypatch.setattr(
+        manager_users,
+        "UserToSubscriptionRepository",
+        lambda: _fake_repo(
+            SimpleNamespace(
+                get_by_telegram_id=lambda telegram_id: [],
+                replace_for_telegram_id=lambda *args, **kwargs: None,
+                session=SimpleNamespace(commit=lambda: None),
+            )
+        ),
+    )
+    monkeypatch.setattr(
         manager_users.UserControlFactory,
         "get_methods_for_user_on_server",
         classmethod(lambda cls, user, server_id: FakePanel(state["healthy"], state["calls"])),
@@ -72,6 +85,7 @@ def transfer_env(monkeypatch):
 
     def fake_init(self, telegram_id):
         self.user = state["user"]
+        self.server_subscriptions = []
         self.protocol_methods = FakePanel(state["healthy"], state["calls"])
 
     monkeypatch.setattr(UserControl, "__init__", fake_init)

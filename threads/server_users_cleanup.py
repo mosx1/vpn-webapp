@@ -5,6 +5,7 @@ from db.enums import PanelXray
 from db.models import ServersTable
 from db.repository.servers import ServersRepository
 from db.repository.users import UsersRepository
+from db.repository.user_to_subscription import UserToSubscriptionRepository
 from methods.controller_3x_ui import UserControl3xUI
 from methods.controller_manager_xray_api import UserControlXray
 
@@ -29,6 +30,12 @@ def _cleanup_server_users_once() -> None:
             server.id: set(users_repo.get_telegram_ids_by_server_id(server.id))
             for server in servers
         }
+
+    with UserToSubscriptionRepository() as uts_repo:
+        for server in servers:
+            server_to_user_ids[server.id].update(
+                uts_repo.get_telegram_ids_by_server_id(server.id)
+            )
 
     for server in servers:
         expected_user_ids = server_to_user_ids.get(server.id, set())
