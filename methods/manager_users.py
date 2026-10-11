@@ -9,7 +9,8 @@ from db.repository.users import UsersRepository
 from db.repository.security import SecurityRepository
 from db.repository.servers import ServersRepository
 from db.repository.users_new import UsersNewRepository
-from db.models import ServersTable, User
+from db.repository.user_to_subscription import UserToSubscriptionRepository
+from db.models import ServersTable, User, UserToSubscription
 from db.enums import Protocols, PanelXray
 
 from methods.controller_manager_xray_api import UserControlXray
@@ -63,40 +64,189 @@ class UserControlFactory:
         return cls.get_methods_for_user_on_server(user, user.server_id)
 
 
+def _normalize_server_link(link: Any) -> str:
+    if isinstance(link, dict):
+        return json.dumps(link, ensure_ascii=False)
+    return str(link) if link is not None else ""
+
+
+def _sync_user_to_subscriptions(
+    telegram_id: int,
+    server_links: dict[int, str],
+    email: str | None = None
+) -> None:
+    if email:
+        with UsersNewRepository() as users_new_repo:
+            users_new_repo.get_or_create(telegram_id, email)
+            users_new_repo.session.commit()
+    with UserToSubscriptionRepository() as uts_repo:
+        uts_repo.replace_for_telegram_id(telegram_id, server_links)
+        uts_repo.session.commit()
+
+
 class UserControl:
 
     def __init__(self, telegram_id: int) -> None:
         with UsersRepository() as users_repo:
-            self.user: User = users_repo.get_by_id(telegram_id)
+            self.user: User = users_repo.get_by_telegram_id(telegram_id)
+        with UserToSubscriptionRepository() as uts_repo:
+            self.server_subscriptions: list[UserToSubscription] = uts_repo.get_by_telegram_id(
+                telegram_id
+            )
         self.protocol_methods = UserControlFactory.get_methods_for_protocol(self.user)
+
+    def _subscription_server_ids(self) -> list[int]:
+        rows = getattr(self, "server_subscriptions", None) or []
+        if rows:
+            return [int(row.server_id) for row in rows]
+        return [int(self.user.server_id)]
+
+    def _delete_from_server(self, user_id: int, server_id: int, protocol_methods: UserControlBase | None = None) -> None:
+        methods = protocol_methods or UserControlFactory.get_methods_for_user_on_server(self.user, server_id)
+        methods.delete(set([user_id]), server_id)
+
+    def _pick_xray_server_ids(self, preferred_server_id: int, exclude_server_ids: set[int] | None = None) -> list[int]:
+        exclude_ids = set(exclude_server_ids or [])
+        with ServersRepository() as servers_repo:
+            preferred = servers_repo.get_by_id(preferred_server_id)
+            preferred_ok = bool(
+                preferred
+                and preferred.panel_xray == PanelXray.xray.value
+                and preferred.answers
+            )
+            extra_exclude = set(exclude_ids)
+            if preferred_ok:
+                extra_exclude.add(int(preferred_server_id))
+            other_ids = servers_repo.get_servers_by_load(
+                panel_xray=PanelXray.xray.value,
+                exclude_server_ids=extra_exclude,
+                limit=1 if preferred_ok else 2
+            )
+        if preferred_ok:
+            return [int(preferred_server_id), *other_ids]
+        return other_ids
+
+    def _provision_xray_servers(self, user_id: int, server_ids: list[int]) -> dict[int, str]:
+        server_links: dict[int, str] = {}
+        for target_server_id in server_ids:
+            try:
+                _methods, link = self._add_on_server(target_server_id)
+            except ServerProvisioningError as error:
+                logging.warning(
+                    "Skip xray server %s for user %s: %s",
+                    target_server_id,
+                    user_id,
+                    error
+                )
+                continue
+            server_links[int(target_server_id)] = _normalize_server_link(link)
+        if not server_links:
+            raise ServerProvisioningError(
+                f"Failed to add user {user_id} on xray servers {server_ids}"
+            )
+        return server_links
+
+    def _persist_primary_and_subscriptions(
+        self,
+        telegram_id: int,
+        server_links: dict[int, str],
+        extra_values: dict | None = None
+    ) -> None:
+        extra_values = extra_values or {}
+        primary_server_id = next(iter(server_links))
+        with UsersRepository() as users_repo:
+            users_repo.update(
+                telegram_id,
+                {
+                    "server_id": primary_server_id,
+                    "server_link": server_links[primary_server_id],
+                    **extra_values
+                }
+            )
+            users_repo.session.commit()
+        _sync_user_to_subscriptions(telegram_id, server_links)
 
     def delete(self) -> None:
         current_user_id = int(self.user.telegram_id)
-        current_server_id = int(self.user.server_id)
         with UsersRepository() as users_repo:
             users_repo.update(current_user_id, {"action": False})
             users_repo.session.commit()
-        self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        for server_id in self._subscription_server_ids():
+            try:
+                self._delete_from_server(current_user_id, server_id)
+            except Exception as error:
+                logging.warning(
+                    "Skip delete on server %s for user %s: %s",
+                    server_id,
+                    current_user_id,
+                    error
+                )
         self.__init__(current_user_id)
     
     def add(self, server_id: int) -> None:
         current_user_id = int(self.user.telegram_id)
-        link = self.protocol_methods.add(current_user_id, server_id)
+        protocol_methods = UserControlFactory.get_methods_for_user_on_server(self.user, server_id)
+        if isinstance(protocol_methods, UserControlXray):
+            existing_ids = self._subscription_server_ids()
+            reuse_existing = (
+                int(server_id) in existing_ids
+                and len(existing_ids) >= 2
+            )
+            target_ids = existing_ids[:2] if reuse_existing else self._pick_xray_server_ids(server_id)
+            if not target_ids:
+                target_ids = [int(server_id)]
+            server_links = self._provision_xray_servers(current_user_id, target_ids)
+            removed_ids = set(existing_ids) - set(server_links)
+            for old_server_id in removed_ids:
+                if self._is_server_unreachable(old_server_id):
+                    continue
+                try:
+                    self._delete_from_server(current_user_id, old_server_id)
+                except Exception as error:
+                    logging.warning(
+                        "Skip delete on replaced server %s for user %s: %s",
+                        old_server_id,
+                        current_user_id,
+                        error
+                    )
+            self._persist_primary_and_subscriptions(
+                current_user_id,
+                server_links,
+                {"action": True}
+            )
+            self.__init__(current_user_id)
+            return
+
+        link = protocol_methods.add(current_user_id, server_id)
+        normalized_link = _normalize_server_link(link)
         with UsersRepository() as users_repo:
             users_repo.update(
                 current_user_id,
                 {
-                    "server_link": link,
+                    "server_link": normalized_link,
                     "action": True
                 }
             )
             users_repo.session.commit()
+        _sync_user_to_subscriptions(
+            current_user_id,
+            {int(server_id): normalized_link}
+        )
         self.__init__(current_user_id)
     
     def update_protocol(self, protocol: Protocols) -> None:
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
-        self.protocol_methods.delete(set([current_user_id]), current_server_id)
+        for server_id in self._subscription_server_ids():
+            try:
+                self._delete_from_server(current_user_id, server_id)
+            except Exception as error:
+                logging.warning(
+                    "Skip delete on server %s while changing protocol for user %s: %s",
+                    server_id,
+                    current_user_id,
+                    error
+                )
         with UsersRepository() as user_repo:
             user_repo.update(
                 current_user_id,
@@ -105,18 +255,8 @@ class UserControl:
                 }
             )
             user_repo.session.commit()
-            user: User = user_repo.get_by_id(current_user_id)
-            self.protocol_methods = UserControlFactory.get_methods_for_protocol(user)
-            link = self.protocol_methods.add(user.telegram_id, user.server_id)
-
-            user_repo.update(
-                user.telegram_id,
-                {
-                    "server_link": link
-                }
-            )
-            user_repo.session.commit()
         self.__init__(current_user_id)
+        self.add(current_server_id)
 
     def _add_on_server(self, server_id: int) -> tuple[UserControlBase, str]:
         """
@@ -179,11 +319,13 @@ class UserControl:
         """
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
+        current_server_ids = self._subscription_server_ids()
 
         with ServersRepository() as servers_repo:
             candidate_server_ids = servers_repo.get_servers_by_load(
                 country=country,
-                exclude_server_id=current_server_id
+                exclude_server_id=current_server_id,
+                exclude_server_ids=current_server_ids
             )
 
         if not candidate_server_ids:
@@ -221,51 +363,73 @@ class UserControl:
 
     def update_server(self, server_id: int) -> None:
         current_user_id = int(self.user.telegram_id)
+        current_server_ids = self._subscription_server_ids()
         current_server_id = int(self.user.server_id)
 
-        if server_id == current_server_id:
+        if server_id in current_server_ids:
             return
 
         new_protocol_methods, link = self._add_on_server(server_id)
+        server_links = {int(server_id): _normalize_server_link(link)}
 
-        if self._is_server_unreachable(current_server_id):
-            logging.warning(
-                "Old server %s is unreachable, skip delete for user %s "
-                "(stale client will be removed by foreign users cleanup)",
-                current_server_id,
-                current_user_id
+        if isinstance(new_protocol_methods, UserControlXray):
+            extra_ids = self._pick_xray_server_ids(
+                server_id,
+                exclude_server_ids=set(current_server_ids)
             )
-        else:
+            for extra_server_id in extra_ids:
+                if extra_server_id == int(server_id):
+                    continue
+                try:
+                    _methods, extra_link = self._add_on_server(extra_server_id)
+                    server_links[int(extra_server_id)] = _normalize_server_link(extra_link)
+                except ServerProvisioningError as error:
+                    logging.warning(
+                        "Skip extra xray server %s while transferring user %s: %s",
+                        extra_server_id,
+                        current_user_id,
+                        error
+                    )
+
+        for old_server_id in current_server_ids:
+            if old_server_id in server_links:
+                continue
+            if self._is_server_unreachable(old_server_id):
+                logging.warning(
+                    "Old server %s is unreachable, skip delete for user %s "
+                    "(stale client will be removed by foreign users cleanup)",
+                    old_server_id,
+                    current_user_id
+                )
+                continue
             try:
-                self.protocol_methods.delete(set([current_user_id]), current_server_id)
+                old_methods = (
+                    self.protocol_methods
+                    if old_server_id == current_server_id
+                    else None
+                )
+                self._delete_from_server(current_user_id, old_server_id, old_methods)
             except Exception as error:
                 logging.warning(
                     "Skip delete on old server %s for user %s: %s",
-                    current_server_id,
+                    old_server_id,
                     current_user_id,
                     error
                 )
 
         try:
-            with UsersRepository() as users_repo:
-                users_repo.update(
-                    current_user_id,
-                    {
-                        "server_id": server_id,
-                        "server_link": link,
-                    }
-                )
-                users_repo.session.commit()
+            self._persist_primary_and_subscriptions(current_user_id, server_links)
         except Exception:
-            try:
-                new_protocol_methods.delete(set([current_user_id]), server_id)
-            except Exception as cleanup_error:
-                logging.warning(
-                    "Failed to rollback user %s on server %s after DB error: %s",
-                    current_user_id,
-                    server_id,
-                    cleanup_error,
-                )
+            for provisioned_server_id in server_links:
+                try:
+                    new_protocol_methods.delete(set([current_user_id]), provisioned_server_id)
+                except Exception as cleanup_error:
+                    logging.warning(
+                        "Failed to rollback user %s on server %s after DB error: %s",
+                        current_user_id,
+                        provisioned_server_id,
+                        cleanup_error,
+                    )
             raise
 
         self.__init__(current_user_id)
@@ -284,6 +448,42 @@ class UserControl:
                 strategy = UserControl3xUI
             case _:
                 raise ValueError(f"Invalid panel xray: {server.panel_xray}")
+
+        if server.panel_xray == PanelXray.xray.value:
+            with ServersRepository() as servers_repo:
+                target_server_ids = servers_repo.get_servers_by_load(
+                    panel_xray=PanelXray.xray.value,
+                    limit=2
+                )
+            if not target_server_ids:
+                target_server_ids = [server_id]
+            server_links: dict[int, str] = {}
+            for target_server_id in target_server_ids:
+                link = strategy.add(users_new_id, target_server_id)
+                if not link:
+                    logging.warning(
+                        "Failed to add new user %s on xray server %s",
+                        users_new_id,
+                        target_server_id
+                    )
+                    continue
+                server_links[int(target_server_id)] = _normalize_server_link(link)
+            if not server_links:
+                raise ServerProvisioningError(
+                    f"Failed to add new user {users_new_id} on xray servers {target_server_ids}"
+                )
+            primary_server_id = next(iter(server_links))
+            with UsersRepository() as users_repo:
+                users_repo.create_user_by_email(
+                    email=email,
+                    telegram_id=users_new_id,
+                    server_link=server_links[primary_server_id],
+                    server_id=primary_server_id
+                )
+                users_repo.session.commit()
+            _sync_user_to_subscriptions(users_new_id, server_links, email=email)
+            return users_new_id
+
         server_link = strategy.add(users_new_id, server_id)
         with UsersRepository() as users_repo:
             users_repo.create_user_by_email(
@@ -294,6 +494,11 @@ class UserControl:
             )
             
             users_repo.session.commit()
+        _sync_user_to_subscriptions(
+            users_new_id,
+            {int(server_id): _normalize_server_link(server_link)},
+            email=email
+        )
         return users_new_id
     
     def prolongation(self, day: int) -> None:

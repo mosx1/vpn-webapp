@@ -28,6 +28,8 @@ from methods.manager_users import (
     get_link_subscription
 )
 from methods.announce import Annonce
+from methods.xray_subscription import build_subscription_payload
+from db.repository.user_to_subscription import UserToSubscriptionRepository
 
 from connect import logging
 
@@ -116,21 +118,29 @@ def _() -> Response:
 
     with UsersRepository() as user_rep:
         user: User | None = user_rep.get_by_telegram_id(payload['telegram_id'])
-        headers = {
-            "subscription-userinfo": f"expire={int(user.exit_date.timestamp())};",
-            "profile-update-interval": 1,
-            "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}",
-            "profile-title": "base64:0JLRi9Cz0L7QtNC90YvQuSBWUE4=",
-            "announce": Annonce.get_header_value()
-        }
-        subscription_data = base64.b64encode(user.server_link.encode("utf-8")).decode("utf-8")
-        if user.protocol == Protocols.amneziawg.value:
-            headers['announce'] = "The AmnesiaWG protocol is selected in the profile. Download the AmnesiaWG app and set it up.".encode("ascii")
-            subscription_data = None
-        return Response(
-            subscription_data,
-            headers=headers
-        )
+    with UserToSubscriptionRepository() as uts_repo:
+        subscriptions = uts_repo.get_by_telegram_id(payload['telegram_id'])
+    subscription_rows = [
+        (int(row.server_id), row.server_link) for row in subscriptions
+    ]
+    if not subscription_rows and user:
+        subscription_rows = [(int(user.server_id), user.server_link)]
+    headers = {
+        "subscription-userinfo": f"expire={int(user.exit_date.timestamp())};",
+        "profile-update-interval": 1,
+        "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}",
+        "profile-title": "base64:0JLRi9Cz0L7QtNC90YvQuSBWUE4=",
+        "announce": Annonce.get_header_value()
+    }
+    subscription_body = build_subscription_payload(subscription_rows)
+    subscription_data = base64.b64encode(subscription_body.encode("utf-8")).decode("utf-8")
+    if user.protocol == Protocols.amneziawg.value:
+        headers['announce'] = "The AmnesiaWG protocol is selected in the profile. Download the AmnesiaWG app and set it up.".encode("ascii")
+        subscription_data = None
+    return Response(
+        subscription_data,
+        headers=headers
+    )
 
 
 @sub.route('/mobile')
@@ -205,8 +215,19 @@ def home_page() -> Response:
     data_from_jwt = _decode_token(raw_jwt)
     with UsersRepository() as user_rep:
         user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
+    with UserToSubscriptionRepository() as uts_repo:
+        subscriptions = uts_repo.get_by_telegram_id(data_from_jwt['telegram_id'])
+    subscription_rows = [
+        (int(row.server_id), row.server_link) for row in subscriptions
+    ]
+    if not subscription_rows and user:
+        subscription_rows = [(int(user.server_id), user.server_link)]
+    server_names: list[str] = []
     with ServersRepository() as server_rep:
-        server: ServersTable = server_rep.get_by_id(user.server_id)
+        for server_id, _server_link in subscription_rows:
+            server: ServersTable | None = server_rep.get_by_id(server_id)
+            if server and server.name not in server_names:
+                server_names.append(server.name)
     is_admin = False
     with UsersNewRepository() as users_new_repo:
         users_new: UserNew | None = users_new_repo.get_by_id(data_from_jwt['telegram_id'])
@@ -227,7 +248,8 @@ def home_page() -> Response:
     protocol_name = _PROTOCOL_DISPLAY.get(user.protocol, str(user.protocol))
     subscription_exit: bool = user.exit_date > datetime.datetime.now()
     referal_code: str = f'https://{config["BaseConfig"].get("host")}?referal={user.telegram_id}'
-    vless_manual_config = _build_vless_troubleshoot_config(user.server_link)
+    subscription_body = build_subscription_payload(subscription_rows)
+    vless_manual_config = _build_vless_troubleshoot_config(subscription_body or user.server_link)
     announce_text = Annonce.get_text()
     
     return Response(
@@ -237,7 +259,7 @@ def home_page() -> Response:
             app_link=app_link,
             pay_link=pay_link,
             month_price=month_price,
-            server_name=server.name,
+            server_name=" / ".join(server_names) if server_names else "",
             user=user,
             sub_url_manual=link,
             token=raw_jwt,

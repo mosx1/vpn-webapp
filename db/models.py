@@ -90,6 +90,16 @@ class UserNew(Base):
         ForeignKeyConstraint(['telegram_id'], ['users_subscription.telegram_id']),
     )
 
+
+class UserToSubscription(Base):
+
+    __tablename__: str = 'user_to_subscription'
+
+    telegram_id: Column = Column(BIGINT, primary_key=True)
+    server_id: Column = Column(BIGINT, primary_key=True)
+    server_link: Column = Column(TEXT, nullable=False)
+
+
 class MTProxyConfigs(Base):
 
     __tablename__: str = 'mtproxy_configs'

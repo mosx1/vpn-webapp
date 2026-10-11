@@ -2,7 +2,7 @@ from ..common import BaseRepository
 
 from db.models import UserNew
 
-from sqlalchemy import select
+from sqlalchemy import select, insert
 
 
 class UsersNewRepository(BaseRepository[UserNew]):
@@ -28,3 +28,17 @@ class UsersNewRepository(BaseRepository[UserNew]):
         query = select(UserNew).filter(UserNew.telegram_id == telegram_id)
         result = self.session.execute(query)
         return result.scalar_one_or_none()
+
+    def get_or_create(self, telegram_id: int, email: str) -> UserNew:
+        """
+            Возвращает запись users по telegram_id или создает ее.
+        """
+        existing = self.get_by_id(telegram_id)
+        if existing:
+            return existing
+        result = self.session.execute(
+            insert(UserNew)
+            .values(email=email, telegram_id=telegram_id)
+            .returning(UserNew)
+        )
+        return result.scalar_one()

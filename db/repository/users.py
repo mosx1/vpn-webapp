@@ -66,7 +66,7 @@ class UsersRepository(BaseRepository[User]):
         server_link: str,
         server_id: int
     ) -> None:
-        """Создание записи"""
+        """Создание записи подписки и пользователя в users, если его еще нет."""
         
         stmt2 = (
             insert(User).values(
@@ -79,6 +79,11 @@ class UsersRepository(BaseRepository[User]):
             )
         )
         self.session.execute(stmt2)
+        existing_user = self.session.execute(
+            select(UserNew).where(UserNew.telegram_id == telegram_id)
+        ).scalar_one_or_none()
+        if existing_user:
+            return
         stmt = (
             insert(UserNew)
             .values(

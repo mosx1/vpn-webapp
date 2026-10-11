@@ -6,7 +6,7 @@ from db.enums import PanelXray
 from sqlalchemy import BinaryExpression, select, func, text, and_, or_, update
 from sqlalchemy.exc import NoResultFound
 
-from typing import Any
+from typing import Any, Iterable
 
 from config_loader import read_config
 
@@ -20,6 +20,8 @@ class ServersRepository(BaseRepository[ServersTable]):
         self,
         country: Any | None = None,
         exclude_server_id: int | None = None,
+        exclude_server_ids: Iterable[int] | None = None,
+        panel_xray: int | None = None,
         limit: int | None = None
     ) -> list[int]:
         """
@@ -53,8 +55,14 @@ class ServersRepository(BaseRepository[ServersTable]):
         if country:
             query = query.filter(ServersTable.country == country.value)
 
+        excluded_ids = set(exclude_server_ids or [])
         if exclude_server_id:
-            query = query.filter(ServersTable.id != exclude_server_id)
+            excluded_ids.add(exclude_server_id)
+        if excluded_ids:
+            query = query.filter(ServersTable.id.notin_(excluded_ids))
+
+        if panel_xray is not None:
+            query = query.filter(ServersTable.panel_xray == panel_xray)
 
         query = (
             query
@@ -67,12 +75,24 @@ class ServersRepository(BaseRepository[ServersTable]):
 
         return [row.id for row in self.session.execute(query).all()]
 
-    def get_very_free_server(self, country: Any | None = None, exclude_server_id: int | None = None) -> int:
+    def get_very_free_server(
+        self,
+        country: Any | None = None,
+        exclude_server_id: int | None = None,
+        exclude_server_ids: Iterable[int] | None = None,
+        panel_xray: int | None = None
+    ) -> int:
         """
             Возвращает менее загруженный сервер по стране
             Если страна не передана - ищет по всем странам
         """
-        server_ids = self.get_servers_by_load(country, exclude_server_id, limit=1)
+        server_ids = self.get_servers_by_load(
+            country,
+            exclude_server_id,
+            exclude_server_ids=exclude_server_ids,
+            panel_xray=panel_xray,
+            limit=1
+        )
 
         if not server_ids:
             raise NoResultFound("Нет доступных серверов")
