@@ -112,7 +112,7 @@ def merge_xray_client_configs(server_configs: list[tuple[int, dict]]) -> dict[st
     merged["observatory"] = {
         "subjectSelector": [_PROXY_TAG_PREFIX],
         "probeUrl": "https://www.gstatic.com/generate_204",
-        "probeInterval": "30s",
+        "probeInterval": "2s",
         "enableConcurrency": True,
     }
     return merged
