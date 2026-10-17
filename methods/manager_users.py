@@ -120,7 +120,7 @@ class UserControl:
             other_ids = servers_repo.get_servers_by_load(
                 panel_xray=PanelXray.xray.value,
                 exclude_server_ids=extra_exclude,
-                limit=1 if preferred_ok else 2
+                limit=1 if preferred_ok else None
             )
         if preferred_ok:
             return [int(preferred_server_id), *other_ids]
