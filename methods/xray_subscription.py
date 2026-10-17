@@ -144,7 +144,7 @@ def build_subscription_payload(server_rows: list[tuple[int, str]]) -> str:
         if isinstance(parsed, dict)
     ]
     if len(json_rows) >= 2:
-        return json.dumps(merge_xray_client_configs(json_rows), ensure_ascii=False)
+        return json.dumps(json_rows)#json.dumps(merge_xray_client_configs(json_rows), ensure_ascii=False)
 
     if json_rows:
         return json.dumps(json_rows[0][1], ensure_ascii=False)
