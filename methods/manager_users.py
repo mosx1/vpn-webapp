@@ -21,7 +21,7 @@ from connect import logging
 
 from config_loader import read_config
 
-from sqlalchemy import text
+from sqlalchemy import text, and_
 from datetime import datetime
 from time import monotonic
 
@@ -189,7 +189,7 @@ class UserControl:
         if isinstance(protocol_methods, UserControlXray):
             with ServersRepository() as servers_repo:
                 server_ids = servers_repo.get_server_list(
-                    (
+                    and_(
                         ServersTable.panel_xray==PanelXray.xray.value,
                         ServersTable.answers==True
                     )
