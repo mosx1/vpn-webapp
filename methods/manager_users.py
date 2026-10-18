@@ -26,6 +26,8 @@ from sqlalchemy import text, and_
 from datetime import datetime
 from time import monotonic
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 TRANSFER_TIME_BUDGET_SECONDS = 60.0
 _PROXY_PROTOCOLS = {"vless", "vmess", "trojan", "shadowsocks"}
@@ -131,18 +133,21 @@ class UserControl:
 
     def _provision_xray_servers(self, user_id: int, server_ids: list[int]) -> dict[int, str]:
         server_links: dict[int, str] = {}
-        for target_server_id in server_ids:
-            try:
-                _methods, link = self._add_on_server(target_server_id)
-            except ServerProvisioningError as error:
-                logging.warning(
-                    "Skip xray server %s for user %s: %s",
-                    target_server_id,
-                    user_id,
-                    error
-                )
-                continue
-            server_links[int(target_server_id)] = _normalize_server_link(link)
+        with ThreadPoolExecutor(max_workers=len(server_ids)) as executor:
+            future_to_url = {executor.submit(self._add_on_server, server_id): server_id for server_id in server_ids}
+            for future in as_completed(future_to_url):
+                server_id = future_to_url[future]
+                try:
+                    _methods, link = future.result()
+                except ServerProvisioningError as error:
+                    logging.warning(
+                        "Skip xray server %s for user %s: %s",
+                        server_id,
+                        user_id,
+                        error
+                    )
+                    continue
+                server_links[int(server_id)] = _normalize_server_link(link)
         if not server_links:
             raise ServerProvisioningError(
                 f"Failed to add user {user_id} on xray servers {server_ids}"
