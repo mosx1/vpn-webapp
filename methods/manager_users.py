@@ -318,7 +318,7 @@ class UserControl:
             @throws ServerProvisioningError Если ни один из серверов не принял пользователя
         """
         self.add(self.user.server_id)
-        return(self.user.server_id)
+        return self.user.server_id
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
         current_server_ids = self._subscription_server_ids()
