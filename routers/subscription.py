@@ -123,6 +123,8 @@ def _() -> Response:
     subscription_rows = [
         (int(row.server_id), row.server_link) for row in subscriptions
     ]
+    if user.server_link:
+        subscriptions.append((int(user.server_id), user.server_link))
     if not subscription_rows and user:
         subscription_rows = [(int(user.server_id), user.server_link)]
     headers = {
