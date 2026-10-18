@@ -188,12 +188,13 @@ class UserControl:
         protocol_methods = UserControlFactory.get_methods_for_user_on_server(self.user, server_id)
         if isinstance(protocol_methods, UserControlXray):
             with ServersRepository() as servers_repo:
-                server_ids = servers_repo.get_server_list(
+                servers = servers_repo.get_server_list(
                     and_(
                         ServersTable.panel_xray==PanelXray.xray.value,
                         ServersTable.answers==True
                     )
                 )
+                server_ids = [server.id for server in servers]
                 server_links = self._provision_xray_servers(current_user_id, server_ids)
                 self._persist_primary_and_subscriptions(
                     current_user_id,
