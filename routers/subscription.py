@@ -72,6 +72,32 @@ def _build_vless_troubleshoot_config(server_link: str) -> dict[str, Any] | str:
         }
     }
 
+
+def _build_router_server_options(
+    subscription_rows: list[tuple[int, str]]
+) -> list[dict[str, Any]]:
+    options: list[dict[str, Any]] = []
+    seen_server_ids: set[int] = set()
+    with ServersRepository() as server_rep:
+        for server_id, server_link in subscription_rows:
+            normalized_server_id = int(server_id)
+            if normalized_server_id in seen_server_ids or not server_link:
+                continue
+            seen_server_ids.add(normalized_server_id)
+            server: ServersTable | None = server_rep.get_by_id(normalized_server_id)
+            server_name = server.name if server else f"Сервер {normalized_server_id}"
+            options.append(
+                {
+                    "server_id": normalized_server_id,
+                    "name": server_name,
+                    "vless_manual_config": _build_vless_troubleshoot_config(
+                        str(server_link)
+                    ),
+                }
+            )
+    return options
+
+
 def _decode_token(raw_jwt: str) -> dict[str, Any]:
     config = read_config()
     with SecurityRepository() as security_rep:
@@ -249,7 +275,14 @@ def home_page() -> Response:
     subscription_exit: bool = user.exit_date > datetime.datetime.now()
     referal_code: str = f'https://{config["BaseConfig"].get("host")}?referal={user.telegram_id}'
     subscription_body = build_subscription_payload(subscription_rows)
+    router_server_options = _build_router_server_options(subscription_rows)
     vless_manual_config = _build_vless_troubleshoot_config(subscription_body or user.server_link)
+    default_router_server_id = int(user.server_id)
+    if not any(
+        option["server_id"] == default_router_server_id
+        for option in router_server_options
+    ) and router_server_options:
+        default_router_server_id = int(router_server_options[0]["server_id"])
     announce_text = Annonce.get_text()
     
     return Response(
@@ -269,6 +302,8 @@ def home_page() -> Response:
             is_admin=is_admin,
             referal_code=referal_code,
             vless_manual_config=vless_manual_config,
+            router_server_options=router_server_options,
+            default_router_server_id=default_router_server_id,
             announce_text=announce_text,
             crypto_payment_enabled=is_trybit_configured(),
         )
