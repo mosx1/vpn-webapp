@@ -161,12 +161,11 @@ class UserControl:
             uts_repo.replace_for_telegram_id(telegram_id, server_links)
             uts_repo.session.commit()
         with UsersRepository() as users_repo:
-            list_server_links = [{server_id: server_link} for server_id, server_link in server_links.items()]
             users_repo.update(
                 telegram_id,
                 {
                     "server_id": primary_server_id,
-                    "server_link": merge_xray_client_configs(list_server_links),
+                    "server_link": merge_xray_client_configs(server_links),
                     **extra_values
                 }
             )
@@ -586,21 +585,21 @@ def _split_outbounds(config: dict) -> tuple[list[dict], list[dict]]:
     return proxies, others
 
 
-def merge_xray_client_configs(server_configs: list[tuple[int, dict]]) -> dict[str, Any]:
+def merge_xray_client_configs(server_configs: dict[int, str]) -> dict[str, Any]:
     """
         Собирает один клиентский JSON из конфигов нескольких серверов.
 
         Каждый proxy-outbound получает тег proxy-<server_id>, а маршрутизация
         идет через balancer xray-ядра (leastPing + observatory).
     """
+    list_keys = list(server_configs.keys())
     if not server_configs:
         raise ValueError("server_configs must not be empty")
 
-    if len(server_configs) == 1:
-        return copy.deepcopy(server_configs[0][1])
+    if len(list_keys) == 1:
+        return copy.deepcopy(server_configs[list_keys[0]])
 
-    base_server_id, base_config = server_configs[0]
-    merged = copy.deepcopy(base_config)
+    merged = copy.deepcopy(server_configs[list_keys[0]])
     _base_proxies, base_others = _split_outbounds(merged)
 
     proxy_outbounds: list[dict] = []
@@ -628,7 +627,7 @@ def merge_xray_client_configs(server_configs: list[tuple[int, dict]]) -> dict[st
         {
             "tag": _BALANCER_TAG,
             "selector": [_PROXY_TAG_PREFIX],
-            "fallbackTag": f"{_PROXY_TAG_PREFIX}{int(base_server_id)}",
+            "fallbackTag": f"{_PROXY_TAG_PREFIX}{int(list_keys[0])}",
             "strategy": {"type": "leastPing"},
         }
     )
