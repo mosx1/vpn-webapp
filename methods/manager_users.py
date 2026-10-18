@@ -598,8 +598,8 @@ def merge_xray_client_configs(server_configs: dict[int, str]) -> dict[str, Any]:
 
     if len(list_keys) == 1:
         return copy.deepcopy(server_configs[list_keys[0]])
-
-    merged = copy.deepcopy(server_configs[list_keys[0]])
+    _merged = server_configs[list_keys[0]]
+    merged = _merged if isinstance(_merged, dict) else json.loads(_merged)
     _base_proxies, base_others = _split_outbounds(merged if isinstance(merged, dict) else json.loads(merged))
 
     proxy_outbounds: list[dict] = []
