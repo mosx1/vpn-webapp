@@ -28,8 +28,6 @@ from time import monotonic
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
-TRANSFER_TIME_BUDGET_SECONDS = 60.0
 _PROXY_PROTOCOLS = {"vless", "vmess", "trojan", "shadowsocks"}
 _BALANCER_TAG = "balancer"
 _PROXY_TAG_PREFIX = "proxy-"
@@ -305,7 +303,7 @@ class UserControl:
     def transfer_to_free_server(
         self,
         country: Any | None = None,
-        time_budget: float = TRANSFER_TIME_BUDGET_SECONDS
+        time_budget: float = 60.0
     ) -> int:
         """
             Переносит пользователя на менее загруженный доступный сервер
