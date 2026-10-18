@@ -603,7 +603,7 @@ def merge_xray_client_configs(server_configs: dict[int, str]) -> dict[str, Any]:
     _base_proxies, base_others = _split_outbounds(merged)
 
     proxy_outbounds: list[dict] = []
-    for server_id, config in server_configs:
+    for server_id, config in server_configs.items():
         proxies, _others = _split_outbounds(config)
         if not proxies:
             continue
