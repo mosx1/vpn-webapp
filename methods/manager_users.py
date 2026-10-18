@@ -657,4 +657,5 @@ def merge_xray_client_configs(server_configs: list[tuple[int, dict]]) -> dict[st
         "probeInterval": "2s",
         "enableConcurrency": True,
     }
+    merged["remarks"] = "Все подписки в одном конфиге"
     return merged
