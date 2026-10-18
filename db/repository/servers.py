@@ -137,7 +137,7 @@ class ServersRepository(BaseRepository[ServersTable]):
 
     def get_server_list(self, filter: BinaryExpression | None = None) -> list[ServersTable]:
         query = select(ServersTable)
-        if filter:
+        if filter is not None:
             query = query.filter(filter)
         return self.session.execute(query).scalars().all()
     
