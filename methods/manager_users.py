@@ -165,7 +165,7 @@ class UserControl:
                 telegram_id,
                 {
                     "server_id": primary_server_id,
-                    "server_link": merge_xray_client_configs(server_links),
+                    "server_link": json.dumps(merge_xray_client_configs(server_links), ensure_ascii=False),
                     **extra_values
                 }
             )
