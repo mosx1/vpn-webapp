@@ -187,35 +187,21 @@ class UserControl:
         current_user_id = int(self.user.telegram_id)
         protocol_methods = UserControlFactory.get_methods_for_user_on_server(self.user, server_id)
         if isinstance(protocol_methods, UserControlXray):
-            existing_ids = self._subscription_server_ids()
-            reuse_existing = (
-                int(server_id) in existing_ids
-                and len(existing_ids) >= 2
-            )
-            target_ids = existing_ids[:2] if reuse_existing else self._pick_xray_server_ids(server_id)
-            if not target_ids:
-                target_ids = [int(server_id)]
-            server_links = self._provision_xray_servers(current_user_id, target_ids)
-            removed_ids = set(existing_ids) - set(server_links)
-            for old_server_id in removed_ids:
-                if self._is_server_unreachable(old_server_id):
-                    continue
-                try:
-                    self._delete_from_server(current_user_id, old_server_id)
-                except Exception as error:
-                    logging.warning(
-                        "Skip delete on replaced server %s for user %s: %s",
-                        old_server_id,
-                        current_user_id,
-                        error
+            with ServersRepository() as servers_repo:
+                server_ids = servers_repo.get_server_list(
+                    (
+                        ServersTable.panel_xray==PanelXray.xray.value,
+                        ServersTable.answers==True
                     )
-            self._persist_primary_and_subscriptions(
-                current_user_id,
-                server_links,
-                {"action": True}
-            )
-            self.__init__(current_user_id)
-            return
+                )
+                server_links = self._provision_xray_servers(current_user_id, server_ids)
+                self._persist_primary_and_subscriptions(
+                    current_user_id,
+                    server_links,
+                    {"action": True}
+                )
+                self.__init__(current_user_id)
+                return
 
         link = protocol_methods.add(current_user_id, server_id)
         normalized_link = _normalize_server_link(link)
