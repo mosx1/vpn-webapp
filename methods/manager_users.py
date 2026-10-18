@@ -161,7 +161,7 @@ class UserControl:
             uts_repo.replace_for_telegram_id(telegram_id, server_links)
             uts_repo.session.commit()
         with UsersRepository() as users_repo:
-            list_server_links = [server_link for server_id, server_link in server_links.items()]
+            list_server_links = [{server_id: server_link} for server_id, server_link in server_links.items()]
             users_repo.update(
                 telegram_id,
                 {
