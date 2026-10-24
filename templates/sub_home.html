@@ -167,6 +167,25 @@
             align-items: stretch;
             margin: 12px 0 4px;
         }
+        .router-config-select {
+            min-height: 46px;
+            min-width: min(100%, 220px);
+            flex: 1 1 220px;
+            max-width: 100%;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font: inherit;
+            font-weight: 600;
+            font-size: clamp(0.92rem, 2.4vw, 1.02rem);
+            cursor: pointer;
+        }
+        .router-config-select:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 3px;
+        }
         a.button {
             touch-action: manipulation;
             display: inline-flex;
@@ -542,8 +561,8 @@
             {% if email %}
                 <p class="protocol-current">Ваш email: <strong>{{ email }}</strong></p>
             {% endif %}
-            <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p>
-            <p class="protocol-current">Текущий сервер: <strong>{{ server_name }}</strong></p>
+            <!-- <p class="protocol-current">Текущий протокол: <strong>{{ protocol_name }}</strong></p>
+            <p class="protocol-current">Текущий сервер: <strong>{{ server_name }}</strong></p> -->
             <p class="protocol-current">Срок подписки: до <strong>{{ user.exit_date.strftime('%d.%m.%Y') }}</strong></p>
             <p class="protocol-current">
                 Реферальная ссылка:
@@ -612,15 +631,24 @@
                 {% endif %}
                 <div class="step-panel step-panel--warn">
                     <h3>Если не работает</h3>
-                    <p>Часто устройства, которые стоят у провайдеров от РКН, временно глушат определенные сервера VРN по паттернам поведения. Для начала попробуйте сменить сервер. Кнопка отрабатывает довольно долго, поэтому дожитесь загрузки. Обратите внимание, что достаточно 1 раз попробовать сменить сервер. Если это требуется несколько раз в день, переходите сразу к следующим пунктам.</p>
+                    <p>Иногда мы добавляем новые сервера и удаляем старые. Чтоб актуализировать список серверов нажмите кнопку ниже.</p>
                     <div class="btn-row">
-                        <a href="/sub/transfer_other_server?token={{ token }}" class="button reload-btn">Сменить сервер</a>
+                        <a href="/sub/transfer_other_server?token={{ token }}" class="button reload-btn">Обновить подписку</a>
                     </div>
                 </div>
                 <div class="step-panel step-panel--warn">
                     <h3>Смена профиля в роутере</h3>
                     <p>Для смены профиля в роутере, вам необходимо скопировать JSON для настройки роутера и вставить его в роутер. Тип профила - outbounds</p>
-                    <a href="#" class="button" id="copy_vless_object">Скопировать JSON для настройки роутера</a>
+                    <div class="btn-row">
+                        {% if router_server_options %}
+                        <select id="router_config_server" class="router-config-select" aria-label="Сервер для конфигурации роутера">
+                            {% for option in router_server_options %}
+                            <option value="{{ option.server_id }}"{% if option.server_id == default_router_server_id %} selected{% endif %}>{{ option.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                        <a href="#" class="button" id="copy_vless_object">Скопировать JSON для настройки роутера</a>
+                    </div>
                 </div>
             </div>
             </div>
@@ -765,11 +793,27 @@
             window.addEventListener('pageshow', hidePageLoader);
         })();
     </script>
-    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price, 'user_id': (user.id|string), 'protocol_is_two': (user.protocol == 2), 'vless_manual_config': vless_manual_config}|tojson }}</script>
+    <script type="application/json" id="sub-page-data">{{ {'sub_url_manual': sub_url_manual, 'server_link': user.server_link, 'month_price': month_price, 'user_id': (user.id|string), 'protocol_is_two': (user.protocol == 2), 'vless_manual_config': vless_manual_config, 'router_server_options': router_server_options}|tojson }}</script>
     <script>
         const subPageData = JSON.parse(document.getElementById('sub-page-data').textContent);
         const copySubUrl = document.getElementById('copy_sub_url');
         const copyVlessObjectButton = document.getElementById('copy_vless_object');
+        const routerConfigServerSelect = document.getElementById('router_config_server');
+        const getSelectedRouterConfig = function () {
+            const routerOptions = Array.isArray(subPageData.router_server_options)
+                ? subPageData.router_server_options
+                : [];
+            if (!routerOptions.length) {
+                return subPageData.vless_manual_config;
+            }
+            const selectedServerId = routerConfigServerSelect
+                ? parseInt(routerConfigServerSelect.value, 10)
+                : NaN;
+            const selectedOption = routerOptions.find(function (option) {
+                return option.server_id === selectedServerId;
+            });
+            return (selectedOption || routerOptions[0]).vless_manual_config;
+        };
         const copyReferralCodeButton = document.getElementById('copy_referral_code');
         const referralCodeValue = document.getElementById('referral_code_value');
         if (copySubUrl) {
@@ -830,11 +874,14 @@
         if (copyVlessObjectButton) {
             copyVlessObjectButton.addEventListener('click', function (event) {
                 event.preventDefault();
-                if (!subPageData.vless_manual_config) {
+                const selectedRouterConfig = getSelectedRouterConfig();
+                if (!selectedRouterConfig) {
                     alert('Для текущей подписки JSON недоступен.');
                     return;
                 }
-                const manualConfigText = typeof subPageData.vless_manual_config === 'string' ? subPageData.vless_manual_config : JSON.stringify(subPageData.vless_manual_config);
+                const manualConfigText = typeof selectedRouterConfig === 'string'
+                    ? selectedRouterConfig
+                    : JSON.stringify(selectedRouterConfig);
                 navigator.clipboard.writeText(manualConfigText);
                 alert('Скопировано!');
             });

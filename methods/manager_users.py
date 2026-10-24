@@ -1,5 +1,6 @@
 import jwt
 import json
+import copy
 
 from typing import Any
 
@@ -21,13 +22,15 @@ from connect import logging
 
 from config_loader import read_config
 
-from sqlalchemy import text
+from sqlalchemy import text, and_
 from datetime import datetime
 from time import monotonic
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-TRANSFER_TIME_BUDGET_SECONDS = 60.0
-
+_PROXY_PROTOCOLS = {"vless", "vmess", "trojan", "shadowsocks"}
+_BALANCER_TAG = "balancer"
+_PROXY_TAG_PREFIX = "proxy-"
 
 class ServerProvisioningError(Exception):
     """Не удалось создать пользователя на целевом сервере."""
@@ -120,7 +123,7 @@ class UserControl:
             other_ids = servers_repo.get_servers_by_load(
                 panel_xray=PanelXray.xray.value,
                 exclude_server_ids=extra_exclude,
-                limit=1 if preferred_ok else 2
+                limit=1 if preferred_ok else None
             )
         if preferred_ok:
             return [int(preferred_server_id), *other_ids]
@@ -128,18 +131,21 @@ class UserControl:
 
     def _provision_xray_servers(self, user_id: int, server_ids: list[int]) -> dict[int, str]:
         server_links: dict[int, str] = {}
-        for target_server_id in server_ids:
-            try:
-                _methods, link = self._add_on_server(target_server_id)
-            except ServerProvisioningError as error:
-                logging.warning(
-                    "Skip xray server %s for user %s: %s",
-                    target_server_id,
-                    user_id,
-                    error
-                )
-                continue
-            server_links[int(target_server_id)] = _normalize_server_link(link)
+        with ThreadPoolExecutor(max_workers=len(server_ids)) as executor:
+            future_to_url = {executor.submit(self._add_on_server, server_id): server_id for server_id in server_ids}
+            for future in as_completed(future_to_url):
+                server_id = future_to_url[future]
+                try:
+                    _methods, link = future.result()
+                except ServerProvisioningError as error:
+                    logging.warning(
+                        "Skip xray server %s for user %s: %s",
+                        server_id,
+                        user_id,
+                        error
+                    )
+                    continue
+                server_links[int(server_id)] = _normalize_server_link(link)
         if not server_links:
             raise ServerProvisioningError(
                 f"Failed to add user {user_id} on xray servers {server_ids}"
@@ -154,12 +160,15 @@ class UserControl:
     ) -> None:
         extra_values = extra_values or {}
         primary_server_id = next(iter(server_links))
+        with UserToSubscriptionRepository() as uts_repo:
+            uts_repo.replace_for_telegram_id(telegram_id, server_links)
+            uts_repo.session.commit()
         with UsersRepository() as users_repo:
             users_repo.update(
                 telegram_id,
                 {
                     "server_id": primary_server_id,
-                    "server_link": server_links[primary_server_id],
+                    "server_link": json.dumps(merge_xray_client_configs(server_links), ensure_ascii=False),
                     **extra_values
                 }
             )
@@ -187,35 +196,22 @@ class UserControl:
         current_user_id = int(self.user.telegram_id)
         protocol_methods = UserControlFactory.get_methods_for_user_on_server(self.user, server_id)
         if isinstance(protocol_methods, UserControlXray):
-            existing_ids = self._subscription_server_ids()
-            reuse_existing = (
-                int(server_id) in existing_ids
-                and len(existing_ids) >= 2
-            )
-            target_ids = existing_ids[:2] if reuse_existing else self._pick_xray_server_ids(server_id)
-            if not target_ids:
-                target_ids = [int(server_id)]
-            server_links = self._provision_xray_servers(current_user_id, target_ids)
-            removed_ids = set(existing_ids) - set(server_links)
-            for old_server_id in removed_ids:
-                if self._is_server_unreachable(old_server_id):
-                    continue
-                try:
-                    self._delete_from_server(current_user_id, old_server_id)
-                except Exception as error:
-                    logging.warning(
-                        "Skip delete on replaced server %s for user %s: %s",
-                        old_server_id,
-                        current_user_id,
-                        error
+            with ServersRepository() as servers_repo:
+                servers = servers_repo.get_server_list(
+                    and_(
+                        ServersTable.panel_xray==PanelXray.xray.value,
+                        ServersTable.answers==True
                     )
-            self._persist_primary_and_subscriptions(
-                current_user_id,
-                server_links,
-                {"action": True}
-            )
-            self.__init__(current_user_id)
-            return
+                )
+                server_ids = [server.id for server in servers]
+                server_links = self._provision_xray_servers(current_user_id, server_ids)
+                self._persist_primary_and_subscriptions(
+                    current_user_id,
+                    server_links,
+                    {"action": True}
+                )
+                self.__init__(current_user_id)
+                return
 
         link = protocol_methods.add(current_user_id, server_id)
         normalized_link = _normalize_server_link(link)
@@ -307,7 +303,7 @@ class UserControl:
     def transfer_to_free_server(
         self,
         country: Any | None = None,
-        time_budget: float = TRANSFER_TIME_BUDGET_SECONDS
+        time_budget: float = 60.0
     ) -> int:
         """
             Переносит пользователя на менее загруженный доступный сервер
@@ -317,6 +313,8 @@ class UserControl:
 
             @throws ServerProvisioningError Если ни один из серверов не принял пользователя
         """
+        self.add(self.user.server_id)
+        return self.user.server_id
         current_user_id = int(self.user.telegram_id)
         current_server_id = int(self.user.server_id)
         current_server_ids = self._subscription_server_ids()
@@ -571,3 +569,95 @@ def get_link_subscription(telegram_id: str | int) -> str:
         )
 
         return f"https://kuzmos.ru/sub?jwt={token}"
+
+
+
+def _is_proxy_outbound(outbound: dict) -> bool:
+    protocol = str(outbound.get("protocol") or "").lower()
+    tag = str(outbound.get("tag") or "")
+    if protocol in _PROXY_PROTOCOLS:
+        return True
+    return tag == "proxy" or tag.startswith(_PROXY_TAG_PREFIX)
+
+def _split_outbounds(config: dict) -> tuple[list[dict], list[dict]]:
+    outbounds = list(config.get("outbounds") or [])
+    proxies = [outbound for outbound in outbounds if _is_proxy_outbound(outbound)]
+    others = [outbound for outbound in outbounds if not _is_proxy_outbound(outbound)]
+    if not proxies and outbounds:
+        return [outbounds[0]], outbounds[1:]
+    return proxies, others
+
+
+def merge_xray_client_configs(server_configs: dict[int, str]) -> dict[str, Any]:
+    """
+        Собирает один клиентский JSON из конфигов нескольких серверов.
+
+        Каждый proxy-outbound получает тег proxy-<server_id>, а маршрутизация
+        идет через balancer xray-ядра (leastPing + observatory).
+    """
+    list_keys = list(server_configs.keys())
+    if not server_configs:
+        raise ValueError("server_configs must not be empty")
+
+    if len(list_keys) == 1:
+        return copy.deepcopy(server_configs[list_keys[0]])
+    _merged = server_configs[list_keys[0]]
+    merged = _merged if isinstance(_merged, dict) else json.loads(_merged)
+    _base_proxies, base_others = _split_outbounds(merged if isinstance(merged, dict) else json.loads(merged))
+
+    proxy_outbounds: list[dict] = []
+    for server_id, config in server_configs.items():
+        proxies, _others = _split_outbounds(config if isinstance(config, dict) else json.loads(config))
+        if not proxies:
+            continue
+        proxy = copy.deepcopy(proxies[0])
+        proxy["tag"] = f"{_PROXY_TAG_PREFIX}{int(server_id)}"
+        proxy_outbounds.append(proxy)
+
+    if not proxy_outbounds:
+        return merged
+
+    merged["outbounds"] = proxy_outbounds + copy.deepcopy(base_others)
+
+    routing = merged.setdefault("routing", {})
+    routing["balancers"] = [
+        balancer
+        for balancer in (routing.get("balancers") or [])
+        if balancer.get("tag") != _BALANCER_TAG
+    ]
+    selector_tags = [outbound["tag"] for outbound in proxy_outbounds]
+    routing["balancers"].append(
+        {
+            "tag": _BALANCER_TAG,
+            "selector": [_PROXY_TAG_PREFIX],
+            "fallbackTag": f"{_PROXY_TAG_PREFIX}{int(list_keys[0])}",
+            "strategy": {"type": "leastPing"},
+        }
+    )
+
+    rules = list(routing.get("rules") or [])
+    replaced_existing_rule = False
+    for rule in rules:
+        outbound_tag = rule.get("outboundTag")
+        if outbound_tag in {"proxy", *selector_tags} or str(outbound_tag).startswith(_PROXY_TAG_PREFIX):
+            rule.pop("outboundTag", None)
+            rule["balancerTag"] = _BALANCER_TAG
+            replaced_existing_rule = True
+    if not replaced_existing_rule:
+        rules.append(
+            {
+                "type": "field",
+                "network": "tcp,udp",
+                "balancerTag": _BALANCER_TAG,
+            }
+        )
+    routing["rules"] = rules
+
+    merged["observatory"] = {
+        "subjectSelector": [_PROXY_TAG_PREFIX],
+        "probeUrl": "https://www.gstatic.com/generate_204",
+        "probeInterval": "2s",
+        "enableConcurrency": True,
+    }
+    merged["remarks"] = "Все подписки в одном конфиге"
+    return merged
