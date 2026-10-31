@@ -20,7 +20,11 @@ class SaleInvoicesInProgressRepository(BaseRepository[SaleInvoicesInProgress]):
         gift_recipient_email: str | None = None
     ) -> None:
 
+        next_id = self.session.execute(
+            select(func.coalesce(func.max(SaleInvoicesInProgress.id), 0) + 1)
+        ).scalar_one()
         query = insert(SaleInvoicesInProgress).values(
+            id=next_id,
             telegram_id=user_id,
             label=label,
             server_id=server_id,
