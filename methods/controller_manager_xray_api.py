@@ -77,8 +77,9 @@ class UserControlXray(UserControlBase):
                     user_id,
                     token
                ),
-               timeout=(5, 60)
+               timeout=10
           )
+
 
           response = _parse_xray_response(http_response, "add")
           if response and response.get("success"):

@@ -129,7 +129,7 @@ class UserControl:
             return [int(preferred_server_id), *other_ids]
         return other_ids
 
-    def _provision_xray_servers(self, user_id: int, server_ids: list[int]) -> dict[int, str]:
+    def _provision_xray_servers(self, user_id: int, server_ids: list[int], max_attempts: int = 3) -> dict[int, str]:
         server_links: dict[int, str] = {}
         with ThreadPoolExecutor(max_workers=len(server_ids)) as executor:
             future_to_url = {executor.submit(self._add_on_server, server_id): server_id for server_id in server_ids}
@@ -147,6 +147,8 @@ class UserControl:
                     continue
                 server_links[int(server_id)] = _normalize_server_link(link)
         if not server_links:
+            if max_attempts > 0:
+                return self._provision_xray_servers(user_id, server_ids, max_attempts - 1)
             raise ServerProvisioningError(
                 f"Failed to add user {user_id} on xray servers {server_ids}"
             )
