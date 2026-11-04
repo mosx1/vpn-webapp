@@ -10,10 +10,10 @@ from db.models import User, UserNew, ServersTable
 from db.repository.users import UsersRepository
 from db.repository.users_new import UsersNewRepository
 from db.repository.servers import ServersRepository
-from db.repository.security import SecurityRepository
 from db.enums import Protocols
 
 from config_loader import read_config
+from core.security import get_jwt_secret
 
 from methods.manager_users import UserControl
 from methods.announce import Annonce
@@ -32,12 +32,11 @@ def _read_token_from_request() -> str:
 
 def _decode_token(raw_jwt: str) -> dict[str, Any]:
     config = read_config()
-    with SecurityRepository() as security_rep:
-        return jwt.decode(
-            raw_jwt,
-            security_rep.get(),
-            algorithms=config['JWT'].get('algoritm')
-        )
+    return jwt.decode(
+        raw_jwt,
+        get_jwt_secret(),
+        algorithms=[config['JWT'].get('algoritm')]
+    )
 
 
 def _is_admin_by_telegram_id(telegram_id: int) -> bool:

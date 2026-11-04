@@ -39,3 +39,7 @@ def test_repositories_do_not_create_engines() -> None:
 
 def test_root_connect_reuses_db_engine() -> None:
     assert root_engine is engine
+
+
+def test_engine_pool_size_is_configured() -> None:
+    assert engine.pool.size() == 8

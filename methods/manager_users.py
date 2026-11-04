@@ -7,7 +7,7 @@ from typing import Any
 from flask import request
 
 from db.repository.users import UsersRepository
-from db.repository.security import SecurityRepository
+from core.security import get_jwt_secret
 from db.repository.servers import ServersRepository
 from db.repository.users_new import UsersNewRepository
 from db.repository.user_to_subscription import UserToSubscriptionRepository
@@ -129,7 +129,7 @@ class UserControl:
             return [int(preferred_server_id), *other_ids]
         return other_ids
 
-    def _provision_xray_servers(self, user_id: int, server_ids: list[int]) -> dict[int, str]:
+    def _provision_xray_servers(self, user_id: int, server_ids: list[int], max_attempts: int = 3) -> dict[int, str]:
         server_links: dict[int, str] = {}
         with ThreadPoolExecutor(max_workers=len(server_ids)) as executor:
             future_to_url = {executor.submit(self._add_on_server, server_id): server_id for server_id in server_ids}
@@ -147,6 +147,8 @@ class UserControl:
                     continue
                 server_links[int(server_id)] = _normalize_server_link(link)
         if not server_links:
+            if max_attempts > 0:
+                return self._provision_xray_servers(user_id, server_ids, max_attempts - 1)
             raise ServerProvisioningError(
                 f"Failed to add user {user_id} on xray servers {server_ids}"
             )
@@ -428,7 +430,6 @@ class UserControl:
                         provisioned_server_id,
                         cleanup_error,
                     )
-            raise
 
         self.__init__(current_user_id)
     
@@ -544,13 +545,11 @@ def get_current_user() -> User | None:
     config = read_config()
 
     raw_jwt = request.args.get('token').strip()
-
-    with SecurityRepository() as security_rep:
-        data_from_jwt: dict[str, Any] = jwt.decode(
-            raw_jwt,
-            security_rep.get(), 
-            algorithms=config['JWT'].get('algoritm')
-        )
+    data_from_jwt: dict[str, Any] = jwt.decode(
+        raw_jwt,
+        get_jwt_secret(),
+        algorithms=[config['JWT'].get('algoritm')]
+    )
     with UsersRepository() as user_rep:
         return user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
 
@@ -560,15 +559,12 @@ def get_link_subscription(telegram_id: str | int) -> str:
         Отдает ссылку для получения подписки
     """
     config = read_config()
-
-    with SecurityRepository() as security_rep:
-        token: str = jwt.encode(
-            {"telegram_id": telegram_id},
-            security_rep.get(), 
-            algorithm=config['JWT'].get('algoritm')
-        )
-
-        return f"https://kuzmos.ru/sub?jwt={token}"
+    token: str = jwt.encode(
+        {"telegram_id": telegram_id},
+        get_jwt_secret(),
+        algorithm=config['JWT'].get('algoritm')
+    )
+    return f"https://kuzmos.ru/sub?jwt={token}"
 
 
 

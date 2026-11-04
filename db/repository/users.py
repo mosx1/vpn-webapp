@@ -1,6 +1,6 @@
 from ..common import BaseRepository
 
-from db.models import User, ServersTable, UserNew
+from db.models import User, ServersTable, UserNew, UserToSubscription
 
 from typing import Iterable, Any
 
@@ -46,6 +46,24 @@ class UsersRepository(BaseRepository[User]):
         query = select(User).filter(User.telegram_id == telegram_id)
         result = self.session.execute(query)
         return result.scalar_one_or_none()
+
+    def get_subscription_payload_by_telegram_id(
+        self,
+        telegram_id: int
+    ) -> tuple[User | None, list[tuple[int, str]]]:
+        """
+            Пользователь и его ссылки из user_to_subscription одним подключением.
+        """
+        user = self.get_by_telegram_id(telegram_id)
+        if user is None:
+            return None, []
+        query = (
+            select(UserToSubscription.server_id, UserToSubscription.server_link)
+            .where(UserToSubscription.telegram_id == telegram_id)
+            .order_by(UserToSubscription.server_id.asc())
+        )
+        rows = self.session.execute(query).all()
+        return user, [(int(row.server_id), row.server_link) for row in rows]
         
     
     def update(self, id: Any, update_data: dict) -> User | None:

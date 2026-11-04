@@ -8,6 +8,17 @@
 # Если файла не было при первом up, Docker мог создать ПАПКУ config.ini — удалите:
 #   rm -rf ./config.ini && cp config.example.ini config.ini && nano config.ini
 # Без volume (только образ): закомментируйте volumes ниже — entrypoint скопирует example в контейнер.
+#
+# web отдаёт HTTP. worker — истечение подписок, health-check и чистка клиентов.
+# Не включайте ENABLE_BACKGROUND_THREADS=1 у web, если поднят worker: задачи задублируются.
+
+x-app-env: &app-env
+  WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+  GUNICORN_WORKER_CLASS: ${GUNICORN_WORKER_CLASS:-gthread}
+  GUNICORN_THREADS: ${GUNICORN_THREADS:-8}
+  GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+  DB_POOL_SIZE: ${DB_POOL_SIZE:-8}
+  DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-16}
 
 services:
   web:
@@ -16,8 +27,17 @@ services:
       - "${APP_PORT:-8000}:8000"
     restart: unless-stopped
     environment:
-      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
-      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
-      ENABLE_BACKGROUND_THREADS: ${ENABLE_BACKGROUND_THREADS:-1}
+      <<: *app-env
+      ENABLE_BACKGROUND_THREADS: "0"
+    volumes:
+      - ${CONFIG_INI_HOST:-./config.ini}:/vpn-webapp/config.ini:ro
+
+  worker:
+    image: ${DEPLOY_IMAGE:?set DEPLOY_IMAGE to ghcr.io/owner/repo:tag}
+    restart: unless-stopped
+    command: ["python", "-u", "-m", "threads.run_worker"]
+    environment:
+      <<: *app-env
+      ENABLE_BACKGROUND_THREADS: "1"
     volumes:
       - ${CONFIG_INI_HOST:-./config.ini}:/vpn-webapp/config.ini:ro

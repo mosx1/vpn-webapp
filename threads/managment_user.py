@@ -76,7 +76,6 @@ def check_subscription():
                     for telegram_id in server_to_users_for_delete_item.telegram_ids:
                         user_control = UserControl(telegram_id)
                         user_control.delete()
-
-            time.sleep(60)
         except Exception as e:
             logging.error('thread check_subscription error: ' + str(e))
+        time.sleep(60)
