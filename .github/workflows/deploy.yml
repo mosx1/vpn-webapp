@@ -1,18 +1,16 @@
 # Деплой: сборка Docker-образа → push в GHCR → на сервере docker compose pull && up.
 # Запуск: Actions → Deploy to server → Run workflow.
-# Ветка берётся из «Use workflow from» сверху. Поле ref оставляйте пустым,
-# если нужна именно эта ветка; туда можно вписать tag или SHA.
+#
+# Ветка для сборки: список «Use workflow from» сверху.
+# Поле ref — только если нужен tag или SHA (обычно пустое).
 #
 # Секреты (Settings → Secrets and variables → Actions):
-#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY — SSH на сервер (как раньше).
-#   GHCR_PULL_USERNAME, GHCR_PULL_TOKEN — опционально, если образ приватный:
-#     на сервере перед pull выполнится docker login ghcr.io.
-#     Token: GitHub → Settings → Developer settings → PAT с read:packages,
-#     или Fine-grained: доступ к репозиторию пакетов.
+#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY — SSH на сервер.
+#   GHCR_PULL_USERNAME, GHCR_PULL_TOKEN — опционально, если образ приватный.
 #
 # Переменные (Variables), по желанию:
-#   DEPLOY_PATH — каталог на сервере с docker-compose.yml (по умолчанию /root/vpn-webapp).
-#   DEPLOY_SSH_PORT — порт SSH (по умолчанию 22; задайте, если SSH не на стандартном порту).
+#   DEPLOY_PATH — каталог на сервере (по умолчанию /root/vpn-webapp).
+#   DEPLOY_SSH_PORT — порт SSH (по умолчанию 22).
 
 name: Deploy to server
 
@@ -20,13 +18,12 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Пусто = ветка из «Use workflow from». Иначе tag или SHA
+        description: Необязательно — tag или SHA вместо выбранной ветки
         required: false
-        default: ""
 
 concurrency:
   group: deploy-server
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -35,11 +32,17 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || github.ref }}
+          ref: ${{ github.event.inputs.ref != '' && github.event.inputs.ref || github.ref }}
+
+      - name: Deploy target
+        run: |
+          echo "checkout_ref=${{ github.event.inputs.ref != '' && github.event.inputs.ref || github.ref }}"
+          echo "commit=${{ github.sha }}"
 
       - name: Имя образа (GHCR в нижнем регистре)
         id: image
@@ -47,6 +50,12 @@ jobs:
           R=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "repo_lc=${R}" >> "$GITHUB_OUTPUT"
           echo "image_sha=ghcr.io/${R}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Pack docker-compose for server
+        id: compose
+        run: |
+          COMPOSE_B64=$(base64 -w 0 docker-compose.yml)
+          echo "b64=${COMPOSE_B64}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -76,16 +85,19 @@ jobs:
           DEPLOY_IMAGE: ${{ steps.image.outputs.image_sha }}
           GHCR_USER: ${{ secrets.GHCR_PULL_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          COMPOSE_B64: ${{ steps.compose.outputs.b64 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ vars.DEPLOY_SSH_PORT != '' && vars.DEPLOY_SSH_PORT || '22' }}
-          envs: DEPLOY_IMAGE,GHCR_USER,GHCR_TOKEN
+          port: ${{ vars.DEPLOY_SSH_PORT || 22 }}
+          envs: DEPLOY_IMAGE,GHCR_USER,GHCR_TOKEN,COMPOSE_B64
           script: |
             set -euo pipefail
             DEPLOY_PATH='${{ vars.DEPLOY_PATH }}'
             if [ -z "$DEPLOY_PATH" ]; then DEPLOY_PATH='/root/vpn-webapp'; fi
+            mkdir -p "$DEPLOY_PATH"
+            printf '%s' "$COMPOSE_B64" | base64 -d > "$DEPLOY_PATH/docker-compose.yml"
             if [ -n "${GHCR_TOKEN:-}" ] && [ -n "${GHCR_USER:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
