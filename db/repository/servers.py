@@ -135,6 +135,16 @@ class ServersRepository(BaseRepository[ServersTable]):
             
         return self.session.execute(query).all()
 
+    def get_by_ids(self, server_ids: Iterable[int]) -> list[ServersTable]:
+        """
+            Возвращает серверы по списку id одним запросом.
+        """
+        ids = list(dict.fromkeys(int(server_id) for server_id in server_ids))
+        if not ids:
+            return []
+        query = select(ServersTable).where(ServersTable.id.in_(ids))
+        return list(self.session.execute(query).scalars().all())
+
     def get_server_list(self, filter: BinaryExpression | None = None) -> list[ServersTable]:
         query = select(ServersTable)
         if filter is not None:

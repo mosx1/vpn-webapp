@@ -10,7 +10,7 @@ from methods.mail.email_sender import send_yandex_email
 from methods.manager_users import UserControl
 
 from db.repository.users_new import UsersNewRepository
-from db.repository.security import SecurityRepository
+from core.security import get_jwt_secret
 
 from db.models import UserNew
 
@@ -235,12 +235,11 @@ def confirm_email() -> Response:
                 )
 
 
-    with SecurityRepository() as security_rep:
-        token: str = jwt.encode(
-            {"telegram_id": user_id},
-            security_rep.get(),
-            algorithm=config['JWT'].get('algoritm')
-        )
+    token: str = jwt.encode(
+        {"telegram_id": user_id},
+        get_jwt_secret(),
+        algorithm=config['JWT'].get('algoritm')
+    )
 
     send_yandex_email(
         to_email=email,

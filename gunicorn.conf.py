@@ -3,9 +3,12 @@ import os
 
 bind = f"0.0.0.0:{os.getenv('APP_PORT', '8000')}"
 workers = int(os.getenv("WEB_CONCURRENCY", max(2, multiprocessing.cpu_count())))
-worker_class = "sync"
+worker_class = os.getenv("GUNICORN_WORKER_CLASS", "gthread")
+threads = int(os.getenv("GUNICORN_THREADS", "8"))
 timeout = int(os.getenv("GUNICORN_TIMEOUT", "120"))
 keepalive = int(os.getenv("GUNICORN_KEEPALIVE", "5"))
+max_requests = int(os.getenv("GUNICORN_MAX_REQUESTS", "1000"))
+max_requests_jitter = int(os.getenv("GUNICORN_MAX_REQUESTS_JITTER", "50"))
 accesslog = "-"
 errorlog = "-"
 loglevel = os.getenv("LOG_LEVEL", "info").lower()
@@ -14,6 +17,7 @@ proxy_allow_ips = forwarded_allow_ips
 
 
 def post_fork(server, worker):
+    # В docker-compose фоновые задачи идут в сервис worker (ENABLE_BACKGROUND_THREADS=0 у web).
     if os.getenv("ENABLE_BACKGROUND_THREADS", "1") != "1":
         return
 

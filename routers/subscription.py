@@ -9,16 +9,16 @@ from typing import Any
 
 from flask import Blueprint, Response, render_template, request, redirect
 
-from db.models import User, ServersTable, UserNew
+from db.models import User, UserNew
 from db.repository.users import UsersRepository
 from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
 from db.repository.servers import ServersRepository
 from db.repository.users_new import UsersNewRepository
 from db.enums import Protocols
-from db.repository.security import SecurityRepository
 from db.repository.devices import Devices
 
 from config_loader import read_config
+from core.security import get_jwt_secret
 
 from methods.payment.provider import get_link_payment, is_trybit_configured
 from methods.manager_users import (
@@ -29,7 +29,6 @@ from methods.manager_users import (
 )
 from methods.announce import Annonce
 from methods.xray_subscription import build_subscription_payload
-from db.repository.user_to_subscription import UserToSubscriptionRepository
 
 from connect import logging
 
@@ -78,34 +77,40 @@ def _build_router_server_options(
 ) -> list[dict[str, Any]]:
     options: list[dict[str, Any]] = []
     seen_server_ids: set[int] = set()
+    ordered_ids: list[int] = []
+    links_by_id: dict[int, str] = {}
+    for server_id, server_link in subscription_rows:
+        normalized_server_id = int(server_id)
+        if normalized_server_id in seen_server_ids or not server_link:
+            continue
+        seen_server_ids.add(normalized_server_id)
+        ordered_ids.append(normalized_server_id)
+        links_by_id[normalized_server_id] = str(server_link)
+    if not ordered_ids:
+        return options
     with ServersRepository() as server_rep:
-        for server_id, server_link in subscription_rows:
-            normalized_server_id = int(server_id)
-            if normalized_server_id in seen_server_ids or not server_link:
-                continue
-            seen_server_ids.add(normalized_server_id)
-            server: ServersTable | None = server_rep.get_by_id(normalized_server_id)
-            server_name = server.name if server else f"Сервер {normalized_server_id}"
-            options.append(
-                {
-                    "server_id": normalized_server_id,
-                    "name": server_name,
-                    "vless_manual_config": _build_vless_troubleshoot_config(
-                        str(server_link)
-                    ),
-                }
-            )
+        servers = server_rep.get_by_ids(ordered_ids)
+    names_by_id = {int(server.id): server.name for server in servers}
+    for server_id in ordered_ids:
+        options.append(
+            {
+                "server_id": server_id,
+                "name": names_by_id.get(server_id, f"Сервер {server_id}"),
+                "vless_manual_config": _build_vless_troubleshoot_config(
+                    links_by_id[server_id]
+                ),
+            }
+        )
     return options
 
 
 def _decode_token(raw_jwt: str) -> dict[str, Any]:
     config = read_config()
-    with SecurityRepository() as security_rep:
-        return jwt.decode(
-            raw_jwt,
-            security_rep.get(),
-            algorithms=config['JWT'].get('algoritm')
-        )
+    return jwt.decode(
+        raw_jwt,
+        get_jwt_secret(),
+        algorithms=[config['JWT'].get('algoritm')]
+    )
 
 @sub.route('/')
 def _() -> Response:
@@ -128,35 +133,31 @@ def _() -> Response:
       200:
         description: Base64-encoded subscription body with profile headers.
     """
-    payload = {}
-
     conf = read_config()
 
     raw_jwt = request.args.get('jwt', request.args.get('token'))
+    if not raw_jwt:
+        return Response("Token is required", status=400)
     raw_jwt = raw_jwt.strip()
-
-    with SecurityRepository() as security_rep:
-        payload = jwt.decode(
-            raw_jwt,
-            security_rep.get(), 
-            algorithms=[conf['JWT'].get('algoritm')]
-        )
+    payload = _decode_token(raw_jwt)
 
     with UsersRepository() as user_rep:
-        user: User | None = user_rep.get_by_telegram_id(payload['telegram_id'])
-    with UserToSubscriptionRepository() as uts_repo:
-        subscriptions = uts_repo.get_by_telegram_id(payload['telegram_id'])
-    subscription_rows = [
-        (int(row.server_id), row.server_link) for row in subscriptions
-    ]
-    if user and user.server_link:
-        subscription_rows.append((int(user.server_id), user.server_link))
+        user, subscription_rows = user_rep.get_subscription_payload_by_telegram_id(
+            payload['telegram_id']
+        )
+    if user is None:
+        return Response("User not found", status=404)
+    if user.server_link:
+        primary_row = (int(user.server_id), user.server_link)
+        if all(server_id != primary_row[0] for server_id, _link in subscription_rows):
+            subscription_rows.append(primary_row)
     headers = {
         "subscription-userinfo": f"expire={int(user.exit_date.timestamp())};",
         "profile-update-interval": 1,
         "profile-web-page-url": f"https://{conf['BaseConfig'].get('host')}/sub/home?token={raw_jwt}",
         "profile-title": "base64:0JLRi9Cz0L7QtNC90YvQuSBWUE4=",
-        "announce": Annonce.get_header_value()
+        "announce": Annonce.get_header_value(),
+        "Cache-Control": "private, max-age=60",
     }
     subscription_body = build_subscription_payload(subscription_rows)
     subscription_data = base64.b64encode(subscription_body.encode("utf-8")).decode("utf-8")
@@ -188,8 +189,6 @@ def linkIphone() -> Response:
         description: Manual setup hint for unsupported devices.
     """
 
-    config = read_config()
-
     request.headers.get('User-Agent')
     device_client: str = (request.headers.get('User-Agent').split("(")[1]).split(";")[0]
 
@@ -205,13 +204,7 @@ def linkIphone() -> Response:
             return Response('Воспользуйтесь ручной настройкой')
     
     raw_jwt = request.args.get('token').strip()
-
-    with SecurityRepository() as security_rep:
-        data_from_jwt: dict[str, Any] = jwt.decode(
-            raw_jwt,
-            security_rep.get(), 
-            algorithms=config['JWT'].get('algoritm')
-        )
+    data_from_jwt = _decode_token(raw_jwt)
     
     link: str = get_link_subscription(data_from_jwt['telegram_id'])
 
@@ -240,20 +233,15 @@ def home_page() -> Response:
     email = None
     data_from_jwt = _decode_token(raw_jwt)
     with UsersRepository() as user_rep:
-        user: User = user_rep.get_by_telegram_id(data_from_jwt['telegram_id'])
-    with UserToSubscriptionRepository() as uts_repo:
-        subscriptions = uts_repo.get_by_telegram_id(data_from_jwt['telegram_id'])
-    subscription_rows = [
-        (int(row.server_id), row.server_link) for row in subscriptions
-    ]
-    if not subscription_rows and user:
+        user, subscription_rows = user_rep.get_subscription_payload_by_telegram_id(
+            data_from_jwt['telegram_id']
+        )
+    if user is None:
+        return Response("User not found", status=404)
+    if not subscription_rows and user.server_link:
         subscription_rows = [(int(user.server_id), user.server_link)]
-    server_names: list[str] = []
-    with ServersRepository() as server_rep:
-        for server_id, _server_link in subscription_rows:
-            server: ServersTable | None = server_rep.get_by_id(server_id)
-            if server and server.name not in server_names:
-                server_names.append(server.name)
+    router_server_options = _build_router_server_options(subscription_rows)
+    server_names = [option["name"] for option in router_server_options]
     is_admin = False
     with UsersNewRepository() as users_new_repo:
         users_new: UserNew | None = users_new_repo.get_by_id(data_from_jwt['telegram_id'])
@@ -275,7 +263,6 @@ def home_page() -> Response:
     subscription_exit: bool = user.exit_date > datetime.datetime.now()
     referal_code: str = f'https://{config["BaseConfig"].get("host")}?referal={user.telegram_id}'
     subscription_body = build_subscription_payload(subscription_rows)
-    router_server_options = _build_router_server_options(subscription_rows)
     vless_manual_config = _build_vless_troubleshoot_config(subscription_body or user.server_link)
     default_router_server_id = int(user.server_id)
     if not any(
@@ -414,8 +401,6 @@ def payment() -> Response:
         description: Invalid month count or gift recipient email.
     """
 
-    config = read_config()
-
     label = str(uuid.uuid4())
     raw_jwt = request.args.get('token').strip()
 
@@ -429,12 +414,7 @@ def payment() -> Response:
 
     is_gift = request.args.get('gift', '0').strip() == '1'
     gift_email = request.args.get('gift_email', '').strip().lower()
-    with SecurityRepository() as security_rep:
-        data_from_jwt: dict[str, Any] = jwt.decode(
-            raw_jwt,
-            security_rep.get(), 
-            algorithms=config['JWT'].get('algoritm')
-        )
+    data_from_jwt = _decode_token(raw_jwt)
 
     if is_gift and not _EMAIL_PATTERN.fullmatch(gift_email):
         return Response("Invalid recipient email", status=400)

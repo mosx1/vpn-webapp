@@ -6,7 +6,7 @@ from sqlalchemy.exc import OperationalError
 from db.models import SaleInvoicesInProgress, User, UserNew
 from db.repository.users import UsersRepository
 from db.repository.users_new import UsersNewRepository
-from db.repository.security import SecurityRepository
+from core.security import get_jwt_secret
 from db.repository.sale_invoices_in_progress import SaleInvoicesInProgressRepository
 from config_loader import read_config
 
@@ -83,12 +83,11 @@ def success_payment_gift(invoice: SaleInvoicesInProgress) -> None:
             user_control.add(recipient_subscription.server_id)
 
     config = read_config()
-    with SecurityRepository() as security_rep:
-        token: str = jwt.encode(
-            {"telegram_id": recipient_user_id},
-            security_rep.get(),
-            algorithm=config['JWT'].get('algoritm')
-        )
+    token: str = jwt.encode(
+        {"telegram_id": recipient_user_id},
+        get_jwt_secret(),
+        algorithm=config['JWT'].get('algoritm')
+    )
 
     send_yandex_email(
         to_email=recipient_email,

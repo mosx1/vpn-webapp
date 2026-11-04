@@ -1,15 +1,14 @@
 import time
 
+from connect import logging
 from methods.servers import check_answers_servers
 
-def health_check_task():
-    while True:
-        check_answers_servers()
-        time.sleep(60)
 
-# def backup_server_config_task():
-#     servers = get_server_list()
-#     while True:
-#         for server in servers:
-#             run_backup_server_config(server.links)
-#         time.sleep(60 * 60)
+def health_check_task():
+    logging.info("thread health_check_task started")
+    while True:
+        try:
+            check_answers_servers()
+        except Exception as error:
+            logging.error("thread health_check_task error: %s", error)
+        time.sleep(60)
