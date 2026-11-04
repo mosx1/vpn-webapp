@@ -1,5 +1,7 @@
 # Деплой: сборка Docker-образа → push в GHCR → на сервере docker compose pull && up.
 # Запуск: Actions → Deploy to server → Run workflow.
+# Ветка берётся из «Use workflow from» сверху. Поле ref оставляйте пустым,
+# если нужна именно эта ветка; туда можно вписать tag или SHA.
 #
 # Секреты (Settings → Secrets and variables → Actions):
 #   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY — SSH на сервер (как раньше).
@@ -17,10 +19,10 @@ name: Deploy to server
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: Ветка для сборки и деплоя
+      ref:
+        description: Пусто = ветка из «Use workflow from». Иначе tag или SHA
         required: false
-        default: main
+        default: ""
 
 concurrency:
   group: deploy-server
@@ -37,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Имя образа (GHCR в нижнем регистре)
         id: image
